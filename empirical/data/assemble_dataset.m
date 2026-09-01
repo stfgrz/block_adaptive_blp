@@ -166,14 +166,25 @@ assert(exist(fpath, 'file') == 2, ...
         'prints the exact manual download route for this series.'], fpath);
 [ym_s, v_s] = read_sdmx_csv(fpath);
 chk = ea_check_series(fname, ym_s, v_s, ym0, ym1);
-if ~chk.ok && ~opts.skip_plausibility
+if opts.skip_plausibility
+    % Keep coverage/duplicate failures, drop the synthetic-data fingerprints.
+    keep = {};
+    for k = 1:numel(chk.msgs)
+        if isempty(strfind(chk.msgs{k}, 'LOOKS SYNTHETIC'))  %#ok<STREMP>
+            keep{end + 1} = chk.msgs{k};  %#ok<AGROW>
+        end
+    end
+    chk.msgs = keep;
+    chk.ok = isempty(keep);
+end
+if ~chk.ok
     msg = sprintf('assemble_dataset: %s failed validation:', fname);
     for k = 1:numel(chk.msgs), msg = sprintf('%s\n  - %s', msg, chk.msgs{k}); end
-    error('%s\n%s', msg, ...
-          ['Fix the input (see fetch_outcome_data) rather than the check. ' ...
-           'Pass opts.skip_plausibility = true only if you have inspected ' ...
-           'the series and decided the fingerprint is a false alarm.']);
-end
+    advice = 'Fix the input (see fetch_outcome_data) rather than the check.';
+    if ~opts.skip_plausibility
+        advice = [advice ' Pass opts.skip_plausibility = true only if you have inspected the series and decided the fingerprint is a false alarm.'];
+    end
+    error('%s\n%s', msg, advice);
 end
 
 function v = pick(ym_src, val_src, ym_want)
