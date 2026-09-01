@@ -25,6 +25,7 @@ test_true_irf();
 test_estimator_consistency();
 test_sampler_sanity();
 test_nesting();
+test_isrw_vector();    % vectorised cfg.fmar.isrw prior mean (Ch. 7 needs it)
 test_fmar_port();      % vs original FMAR code (skips if not installed)
 test_fmar_nesting();   % block-adaptive(tau=1) == FMAR posterior mean
 

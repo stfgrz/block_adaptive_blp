@@ -106,6 +106,22 @@ original functions; it is skipped with a message otherwise):
 cd tests; run_all_tests
 ```
 
+The Chapter 7 euro-area application is a separate, self-contained
+pipeline under `empirical/` — every entry point resolves its own paths,
+so it runs from any working directory:
+
+```matlab
+build_shock_series();      % EA-EMPD events -> monthly surprises
+fetch_outcome_data();      % the four outcome series (or manual route)
+assemble_dataset();        % -> empirical/data/ea_dataset.mat
+SMOKE_TEST_EMPIRICAL       % ~1 min interface check
+RUN_EMPIRICAL              % the multi-hour job
+```
+
+Read `empirical/README_EMPIRICAL.md` first; it documents the run order,
+the input-validation tripwires, and the one estimator edit the package
+required.
+
 ## 6. Folder structure
 
 ```
@@ -129,11 +145,18 @@ montecarlo/         run_montecarlo / summarize_montecarlo (mode-aware)
 plots/              plot_irfs / plot_rmse / plot_block_scales
 tests/              assertion-based tests + run_all_tests
                     (test_fmar_port validates against the original FMAR
-                    code; test_fmar_nesting checks the tau = 1 nesting)
+                    code; test_fmar_nesting checks the tau = 1 nesting;
+                    test_isrw_vector guards the vectorised isrw prior mean)
 utils/              small transparent helpers (regressor builder, gamma /
                     inverse-gamma / quantile draws, safe Cholesky,
                     gamma_coef, draw_iw, var_deterministic_trend)
-results/            figures and .mat output land here
+empirical/          Chapter 7 euro-area application, self-contained:
+                    data construction (EA-EMPD surprises + outcome series),
+                    RUN_EMPIRICAL driver, SMOKE_TEST_EMPIRICAL,
+                    null calibration, docs/CH7_DESIGN.md.
+                    See empirical/README_EMPIRICAL.md
+results/            figures and .mat output land here (simulation AND
+                    empirical)
 ```
 
 Deviations from the suggested layout: a `utils/` folder was added (shared
@@ -237,4 +260,11 @@ replication code (`tests/test_fmar_port.m`) and exact `tau = 1` nesting
    `tau_g` (random-walk prior on `log tau_{g,h}` across `h`).
 4. Empirical application: euro-area monetary policy with the EA-EMPD
    high-frequency surprises (monthly aggregation, information-effect
-   robustness), `cfg.fmar.isrw = true` for levels data.
+   robustness). **Implemented in `empirical/`** — see
+   `empirical/docs/CH7_DESIGN.md`. The K = 5 system mixes a
+   white-noise-ish surprise with persistent levels, so it uses the
+   per-variable form `cfg.fmar.isrw = [0 1 1 1 1]` rather than a scalar
+   `true`; `estimate_bvar_niw` accepts either (scalars behave exactly as
+   before, pinned by `tests/test_isrw_vector.m`). What remains is
+   obtaining the four outcome series (`fetch_outcome_data` prints the
+   manual route) and running the null calibration at `R >= 200`.
