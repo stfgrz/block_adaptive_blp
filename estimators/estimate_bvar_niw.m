@@ -24,7 +24,10 @@ function bvar = estimate_bvar_niw(Y, cfg)
 %     vec(B) | Sigma ~ N(vec(b), Sigma (x) Omega),
 %     b = 0 except first own lag = 1 for variables flagged as random
 %         walks (cfg.fmar.isrw; FALSE for the stationary simulations,
-%         matching GLP's white-noise centring for stationary data);
+%         matching GLP's white-noise centring for stationary data).
+%         isrw is a scalar (all variables alike) or a 1 x K vector, so
+%         mixed systems can centre some variables at white noise and
+%         others at a random walk;
 %     omega_1 = Vc (loose constant),
 %     omega for lag-l of variable v = lambda^2 / (l^2 * psi_v)
 %         (Minnesota lag decay with exponent alpha = 2, ACTIVE for the
@@ -56,7 +59,8 @@ function bvar = estimate_bvar_niw(Y, cfg)
 % ------
 % Y   : (T x K) data.
 % cfg : configuration struct (cfg.p, cfg.H, cfg.shock_var, cfg.ci_level,
-%       cfg.fmar.* : Vc, isrw, lambda_min/max, n_niw_draws).
+%       cfg.fmar.* : Vc, isrw (scalar or 1 x K), lambda_min/max,
+%       n_niw_draws).
 %
 % OUTPUTS
 % -------
@@ -97,10 +101,23 @@ for j = 1:K
 end
 
 % --- prior mean --------------------------------------------------------
+% cfg.fmar.isrw flags which variables get a RANDOM-WALK prior centre
+% (first own lag = 1); the others are centred at white noise (0).  It
+% accepts either a scalar (all K variables treated alike -- the original
+% behaviour) or a 1 x K / K x 1 vector, which mixed systems need: the
+% empirical application centres the policy surprise at white noise and
+% the four level variables at random walks, isrw = [0 1 1 1 1].
+% A scalar reproduces the previous code EXACTLY: false -> diag of zeros
+% (b unchanged), true -> diag of ones = eye(K).  The vector form is
+% required because `if [0 1 1 1 1]` is FALSE in MATLAB/Octave (all() of
+% the elements), which would silently drop the RW centre for every
+% variable rather than just the first.
+isrw = double(cfg.fmar.isrw(:));
+if isscalar(isrw), isrw = repmat(isrw, K, 1); end
+assert(numel(isrw) == K, ...
+       'estimate_bvar_niw: cfg.fmar.isrw must be a scalar or have K = %d elements.', K);
 b = zeros(m, K);
-if cfg.fmar.isrw
-    b(1 + (1:K) + 0, :) = eye(K);       % first own lag = 1 (rows 2..K+1)
-end
+b(1 + (1:K), :) = diag(isrw);           % first own lag (rows 2..K+1)
 
 % --- lambda by logML + Gamma(mode .4, sd .2) hyperprior ----------------
 [gk, gtheta] = gamma_coef(0.4, 0.2);

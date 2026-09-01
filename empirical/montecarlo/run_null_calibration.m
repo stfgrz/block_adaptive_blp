@@ -31,11 +31,20 @@ function null = run_null_calibration(cfg_over)
 % USAGE
 % -----
 %   null = run_null_calibration();                       % defaults below
-%   null = run_null_calibration(struct('null', struct('n_rep', 25)));  % quick
+%   null = run_null_calibration(struct('null', struct('n_rep', 10)));  % TIMING
+%   null = run_null_calibration(struct('p', 6));         % match a p = 6 run
 %
 % CONFIG (cfg.null.*, all defaulted here; cfg_over is merged on top of
 % default_config() with cfg.mode = 'fmar')
 % ------------------------------------------------------------------------
+%   p            12     LAG ORDER.  Must match the lag order of the real-data
+%                       run whose tau map these thresholds will be read
+%                       against (RUN_EMPIRICAL step A uses p = 12).  This
+%                       is NOT default_config's p = 2, which belongs to the
+%                       simulation DGPs: thresholds calibrated at the wrong
+%                       p do not describe the null distribution of the
+%                       statistic being tested.  A top-level cfg_over.p
+%                       overrides this.
 %   n_rep        200    replications (500 for the thesis run)
 %   H            12     horizons simulated/estimated under the null; the
 %                       protocol statistic only needs h <= h_early(2), and
@@ -51,10 +60,14 @@ function null = run_null_calibration(cfg_over)
 %   seed         20260901
 %   checkpoint_every 10 save results/null_ckpt.mat every so many reps
 %   resume       true   continue from a checkpoint if present
-%   dataset      'data/ea_dataset.mat'
-%   out_mat      'results/null_calibration.mat'
-%   out_csv      'results/null_thresholds.csv'
+%   dataset      <repo>/empirical/data/ea_dataset.mat
+%   out_mat      <repo>/results/null_calibration.mat
+%   out_csv      <repo>/results/null_thresholds.csv
 %   sim_method   'resample'
+% All default paths are ABSOLUTE, so this runs from any directory.  The
+% checkpoint (results/null_ckpt.mat) is only resumed when its stored
+% n_rep, p and H all match the current run, so a p = 2 checkpoint can
+% never be silently continued as a p = 12 one.
 %
 % RUNTIME
 % -------
@@ -73,32 +86,51 @@ function null = run_null_calibration(cfg_over)
 
 if nargin < 1, cfg_over = struct(); end
 
+% Self-sufficient on the path, whatever the working directory is.
+if exist('ea_paths', 'file') ~= 2
+    addpath(genpath(fileparts(fileparts(fileparts(mfilename('fullpath'))))));
+end
+P = ea_paths();
+
 cfg = default_config();
 cfg.mode = 'fmar';
 cfg = merge_struct(cfg, cfg_over);
 
-nd = struct('n_rep', 200, 'H', 12, 'h_early', [2 12], ...
+nd = struct('n_rep', 200, 'p', 12, 'H', 12, 'h_early', [2 12], ...
             'gibbs_n_burn', 200, 'gibbs_n_keep', 300, ...
             'seed', 20260901, 'checkpoint_every', 10, 'resume', true, ...
-            'dataset', fullfile('data', 'ea_dataset.mat'), ...
-            'out_mat', fullfile('results', 'null_calibration.mat'), ...
-            'out_csv', fullfile('results', 'null_thresholds.csv'), ...
+            'dataset', P.dataset, ...
+            'out_mat', fullfile(P.results, 'null_calibration.mat'), ...
+            'out_csv', fullfile(P.results, 'null_thresholds.csv'), ...
             'sim_method', 'resample');
 if isfield(cfg, 'null'), nd = merge_struct(nd, cfg.null); end
 cfg.null = nd;
+% A top-level p in cfg_over wins over the default, so both
+%   run_null_calibration(struct('p', 6))
+%   run_null_calibration(struct('null', struct('p', 6)))
+% do what they look like they do.
+if isfield(cfg_over, 'p'), cfg.null.p = cfg_over.p; end
+cfg.p = cfg.null.p;
 
 % --- data and null-run configuration ---------------------------------------
+assert(exist(cfg.null.dataset, 'file') == 2, ...
+       ['run_null_calibration: %s not found.\n' ...
+        'Build it first: build_shock_series(); fetch_outcome_data(); ' ...
+        'assemble_dataset();'], cfg.null.dataset);
 ds = load(cfg.null.dataset);
 Y0 = ds.Y;
 [T, K] = size(Y0);
-if isfield(cfg, 'fmar'), cfg.fmar.isrw = ds.isrw; end   % vectorised patch
+if isfield(cfg, 'fmar'), cfg.fmar.isrw = ds.isrw; end   % 1 x K, mixed centre
 cfg.shock_var = 1;
+cfg.K = K;
 cfg.H = cfg.null.H;
 cfg.gibbs.n_burn = cfg.null.gibbs_n_burn;
 cfg.gibbs.n_keep = cfg.null.gibbs_n_keep;
+if exist(P.results, 'dir') ~= 7, mkdir(P.results); end
 
 fprintf('run_null_calibration: K = %d, T = %d, p = %d, H = %d, R = %d\n', ...
         K, T, cfg.p, cfg.H, cfg.null.n_rep);
+fprintf('  thresholds are only valid for a real-data run at the SAME p = %d.\n', cfg.p);
 
 % --- the pseudo-true VAR: fitted on the REAL data ---------------------------
 rng(cfg.null.seed, 'twister');
@@ -113,7 +145,7 @@ tau_all   = nan(R, K, G, cfg.H);               % tau_mean at h = 1..H
 cover_all = nan(R, K, cfg.H - 1);              % band coverage of dgp.theta, h >= 2
 r0 = 1;
 
-ck = fullfile('results', 'null_ckpt.mat');
+ck = fullfile(P.results, 'null_ckpt.mat');
 if cfg.null.resume && exist(ck, 'file')
     L = load(ck);
     if isequal(L.n_rep, R) && isequal(L.p, cfg.p) && isequal(L.H, cfg.H)
@@ -121,7 +153,6 @@ if cfg.null.resume && exist(ck, 'file')
         fprintf('  resuming from checkpoint at rep %d\n', r0);
     end
 end
-if ~exist('results', 'dir'), mkdir('results'); end
 
 t_start = tic;
 for r = r0:R
@@ -175,6 +206,7 @@ save(cfg.null.out_mat, '-struct', 'null');
 
 % threshold table (long format, thesis Table appendix + reading protocol)
 fid = fopen(cfg.null.out_csv, 'w');
+assert(fid > 0, 'run_null_calibration: cannot write %s', cfg.null.out_csv);
 fprintf(fid, 'equation,block,null_mean,q90,q95,q99,argmax_freq\n');
 for i = 1:K
     for g = 1:G

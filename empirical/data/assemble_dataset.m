@@ -28,9 +28,16 @@ function ds = assemble_dataset(opts)
 %                        'mps_all_tgt'.
 %   opts.y0m0 / y1m1   : [year month] window bounds, default [2000 1] /
 %                        [2019 12].
-%   opts.raw_dir       : default 'data/raw'.
-%   opts.out_mat       : default 'data/ea_dataset.mat' (variant name is
-%                        appended automatically for non-baseline variants).
+%   opts.raw_dir       : default <repo>/empirical/data/raw.
+%   opts.out_mat       : default <repo>/empirical/data/ea_dataset.mat
+%                        (the variant name is appended automatically for
+%                        non-baseline variants).
+%   opts.skip_plausibility : default false.  The four outcome series are
+%                        re-validated here (coverage + the synthetic-data
+%                        fingerprints of ea_check_series) so a fabricated
+%                        or short input cannot reach the estimators even
+%                        if fetch_outcome_data was bypassed.
+% All default paths are ABSOLUTE, so this runs from any directory.
 %
 % OUTPUT / SAVED FIELDS
 % ---------------------
@@ -48,12 +55,20 @@ function ds = assemble_dataset(opts)
 % expect the same ordering here.
 
 if nargin < 1, opts = struct(); end
+
+% Self-sufficient on the path, whatever the working directory is.
+if exist('ea_paths', 'file') ~= 2
+    addpath(genpath(fileparts(fileparts(fileparts(mfilename('fullpath'))))));
+end
+P = ea_paths();
+
 opts = set_default(opts, 'shock_variant', 'mps_gc_1y');
 opts = set_default(opts, 'y0m0', [2000 1]);
 opts = set_default(opts, 'y1m1', [2019 12]);
-opts = set_default(opts, 'raw_dir', fullfile('data', 'raw'));
-opts = set_default(opts, 'shocks_mat', fullfile('data', 'derived', 'shocks_monthly.mat'));
-opts = set_default(opts, 'out_mat', fullfile('data', 'ea_dataset.mat'));
+opts = set_default(opts, 'raw_dir', P.raw);
+opts = set_default(opts, 'shocks_mat', fullfile(P.derived, 'shocks_monthly.mat'));
+opts = set_default(opts, 'out_mat', P.dataset);
+if ~isfield(opts, 'skip_plausibility'), opts.skip_plausibility = false; end
 
 % --- load shocks ----------------------------------------------------------
 assert(exist(opts.shocks_mat, 'file') > 0, ...
@@ -62,17 +77,21 @@ S = load(opts.shocks_mat);
 assert(isfield(S, opts.shock_variant), ...
        'assemble_dataset: unknown shock variant %s', opts.shock_variant);
 
-% --- load outcomes ---------------------------------------------------------
-[ym_ip,  v_ip]  = read_sdmx_csv(fullfile(opts.raw_dir, 'ip_ea.csv'));
-[ym_pi,  v_pi]  = read_sdmx_csv(fullfile(opts.raw_dir, 'hicp_ea.csv'));
-[ym_r,   v_r]   = read_sdmx_csv(fullfile(opts.raw_dir, 'rate1y_ea.csv'));
-[ym_sx,  v_sx]  = read_sdmx_csv(fullfile(opts.raw_dir, 'stoxx50_ea.csv'));
-
 % --- align -----------------------------------------------------------------
 ym0 = 12 * opts.y0m0(1) + opts.y0m0(2);
 ym1 = 12 * opts.y1m1(1) + opts.y1m1(2);
 ym  = (ym0:ym1)';
 T   = numel(ym);
+
+% --- load and VALIDATE outcomes --------------------------------------------
+% Second line of defence after fetch_outcome_data: a series that does not
+% cover the window, or that carries a synthetic-data fingerprint, must
+% never reach the estimators.  See ea_check_series.m for the checks and
+% empirical/data/raw/placeholder_rejected/README.md for why they exist.
+[ym_ip, v_ip] = load_outcome(opts, 'ip_ea.csv',      ym0, ym1);
+[ym_pi, v_pi] = load_outcome(opts, 'hicp_ea.csv',    ym0, ym1);
+[ym_r,  v_r ] = load_outcome(opts, 'rate1y_ea.csv',  ym0, ym1);
+[ym_sx, v_sx] = load_outcome(opts, 'stoxx50_ea.csv', ym0, ym1);
 
 Y = nan(T, 5);
 Y(:, 1) = pick(S.ym, S.(opts.shock_variant), ym) / 100;   % bp -> pp
@@ -101,7 +120,11 @@ fprintf('assemble_dataset: T = %d months (%d-%02d to %d-%02d), K = 5, variant = 
 fprintf('  col means: '); fprintf('%.2f ', mean(Y)); fprintf('\n');
 fprintf('  col stds : '); fprintf('%.2f ', std(Y));  fprintf('\n');
 
-% first-stage relevance: Delta i1y on mps (both in pp), effective 2001m1+
+% First-stage relevance: Delta i1y_t = a + b * mps_t + e_t, both in pp,
+% over the FULL assembled window (t = 2..T, i.e. 2000m2-2019m12 by
+% default -- not the p = 12 effective estimation sample, which starts a
+% year later; the relevance of the instrument is a property of the series,
+% not of the lag order).
 di = diff(Y(:, 2));  s = Y(2:end, 1);
 X  = [ones(numel(s), 1), s];
 b  = X \ di;
@@ -120,6 +143,11 @@ if ~strcmp(opts.shock_variant, 'mps_gc_1y')
     [pth, nm, ext] = fileparts(out);
     out = fullfile(pth, sprintf('%s_%s%s', nm, opts.shock_variant, ext));
 end
+outdir = fileparts(out);
+if ~isempty(outdir) && exist(outdir, 'dir') ~= 7
+    [okdir, msg] = mkdir(outdir);
+    assert(okdir == 1, 'assemble_dataset: cannot create %s (%s)', outdir, msg);
+end
 save(out, '-struct', 'ds');
 fprintf('assemble_dataset: saved %s\n', out);
 end
@@ -127,6 +155,25 @@ end
 % -------------------------------------------------------------------------
 function s = set_default(s, f, v)
 if ~isfield(s, f) || isempty(s.(f)), s.(f) = v; end
+end
+
+function [ym_s, v_s] = load_outcome(opts, fname, ym0, ym1)
+% Read one outcome csv and refuse it if it is unusable.
+fpath = fullfile(opts.raw_dir, fname);
+assert(exist(fpath, 'file') == 2, ...
+       ['assemble_dataset: %s is missing.\n' ...
+        'Run fetch_outcome_data() first; if the automatic download fails it ' ...
+        'prints the exact manual download route for this series.'], fpath);
+[ym_s, v_s] = read_sdmx_csv(fpath);
+chk = ea_check_series(fname, ym_s, v_s, ym0, ym1);
+if ~chk.ok && ~opts.skip_plausibility
+    msg = sprintf('assemble_dataset: %s failed validation:', fname);
+    for k = 1:numel(chk.msgs), msg = sprintf('%s\n  - %s', msg, chk.msgs{k}); end
+    error('%s\n%s', msg, ...
+          ['Fix the input (see fetch_outcome_data) rather than the check. ' ...
+           'Pass opts.skip_plausibility = true only if you have inspected ' ...
+           'the series and decided the fingerprint is a false alarm.']);
+end
 end
 
 function v = pick(ym_src, val_src, ym_want)

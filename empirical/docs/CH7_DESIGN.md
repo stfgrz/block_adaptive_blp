@@ -1,9 +1,20 @@
 # Chapter 7 — Empirical application design
 ## "Where does the VAR prior fail in euro-area monetary transmission?"
 
-Status: first full draft (2026-09-01). Companion code: `data/`, `dgp/`,
-`estimators/`, `montecarlo/`, `RUN_EMPIRICAL.m`. Integration notes:
-`README_EMPIRICAL.md`.
+Status: first full draft (2026-09-01). Companion code lives in
+`empirical/`: `data/`, `dgp/`, `estimators/`, `montecarlo/`,
+`RUN_EMPIRICAL.m`, `SMOKE_TEST_EMPIRICAL.m`. Run order, input validation
+and verified estimator signatures: `README_EMPIRICAL.md`.
+
+> **Status caveat (2026-09-01).** The four outcome series have not yet
+> been obtained. The files that previously sat under their names were
+> generated placeholders, not data, and are quarantined in
+> `data/raw/placeholder_rejected/`; `fetch_outcome_data` and
+> `assemble_dataset` now refuse them. Every number in this document that
+> depends on the outcome series — the first-stage F, the tau maps, all of
+> Sec. 7's pre-registered expectations — is therefore still to be
+> produced. The shock-series statistics in Sec. 1 are real: they come from
+> the shipped EA-EMPD event file and reproduce exactly.
 
 ---
 
@@ -47,7 +58,7 @@ standard object in the euro-area HF literature since Altavilla et al.
 months without events — exactly AGKL's construction for their own
 transmission BVAR (their Sec. 4.3). Monthly panel produced by
 `data/build_shock_series.m`; window statistics for 2001m1–2019m12: 221
-GC_ME events in 206 of 228 months, monthly std 4.29 bp.
+GC_ME events in 204 of 228 months (24 zero months), monthly std 4.29 bp.
 
 **Maturity — decision: OIS 1Y baseline, OIS 3M robustness.** The genuinely
 contested choice; both sides, then the argument.
@@ -130,9 +141,11 @@ shock normalised to raise the 1Y rate by 25 bp on impact. One common k
 confounded with normalisation differences.
 
 **Deterministics/persistence.** FMAR machinery as in Ch. 5–6: GLP BVAR
-with RW prior means for persistent variables. `isrw` must be the vector
-[0 1 1 1 1] (white-noise centre for the surprise, RW for levels) — the
-one-line patch in `estimate_bvar_niw.m` (README). HICP is used NSA
+with RW prior means for persistent variables. `isrw` is the vector
+[0 1 1 1 1] (white-noise centre for the surprise, RW for levels);
+`estimate_bvar_niw.m` now builds the prior mean as `diag(isrw)` and
+accepts a scalar or a 1×K vector (applied, and pinned by
+`tests/test_isrw_vector.m`). HICP is used NSA
 (Eurostat index); p = 12 absorbs seasonality at baseline, but note the
 p = 2 dose-response leg deliberately does *not* — that is part of the
 design (Sec. 5.2): residual seasonality is a known, real form of dynamic
@@ -228,7 +241,7 @@ runs are the same code with three values of cfg.p.)
 
 Rerun the whole Leg-1 exhibit with `mps_gc_jk` (JK "poor man's sign
 restriction": keep the GC surprise only when the STOXX50E window move has
-the opposite sign; 114/221 events survive, monthly std 3.52 bp). Question
+the opposite sign; 115/221 events survive, monthly std 3.51 bp). Question
 asked of the diagnostic: *does cleaning information effects change where
 the VAR prior fails?* Plausible pattern: the stoxx-block escapes in the
 baseline shrink under JK surprises (information events are exactly where
@@ -266,13 +279,16 @@ Deviations from these are reported as such, not massaged.
 ## 9. Run plan and budgets
 
 1. `build_shock_series` + `fetch_outcome_data` + `assemble_dataset` —
-   minutes; verify first-stage prints.
+   minutes; verify first-stage prints.  Then `SMOKE_TEST_EMPIRICAL`
+   (~1 min) to check every estimator interface before committing hours.
 2. `RUN_EMPIRICAL` steps A–D — each single estimation is one BVAR + K·H
    λ-searches + K·H Gibbs chains; expect tens of minutes per estimation at
    p = 12, H = 48 with full chains. Steps A+C+D ≈ 5 estimations.
 3. `run_null_calibration` — the long job. Defaults R = 200, H = 12,
-   reduced chains; **do `n_rep = 10` first** and scale from the printed
-   s/rep. Checkpointed every 10 reps, resume-safe. Thesis run R = 500 if
+   **p = 12 (matching step A; thresholds calibrated at a different lag
+   order do not describe the null distribution of the statistic they are
+   read against)**, reduced chains; **do `n_rep = 10` first** and scale
+   from the printed s/rep. Checkpointed every 10 reps, resume-safe. Thesis run R = 500 if
    the quick timing allows (user's machine did 3×500 Ch. 6 reps in ~1 h,
    but these reps are heavier: m = 61 vs 7 regressors, K = 5 vs 3 —
    budget overnight).

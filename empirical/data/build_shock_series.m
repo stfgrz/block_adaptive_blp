@@ -38,12 +38,16 @@ function shocks = build_shock_series(opts)
 %
 % INPUTS (all optional, via opts struct)
 % --------------------------------------
-%   opts.csv_path : events csv (default 'data/raw/ea_empd_events.csv')
+%   opts.csv_path : events csv (default <repo>/empirical/data/raw/
+%                   ea_empd_events.csv, shipped with the package)
 %   opts.y0, m0   : first output month (default 1999, 1)
 %   opts.y1, m1   : last output month  (default 2025, 12)
 %   opts.max_adj  : cap on the day-count adjustment factor (default 6)
-%   opts.out_csv  : output csv (default 'data/derived/shocks_monthly.csv')
-%   opts.out_mat  : output mat (default 'data/derived/shocks_monthly.mat')
+%   opts.out_csv  : output csv (default <repo>/empirical/data/derived/
+%                   shocks_monthly.csv)
+%   opts.out_mat  : output mat (default same folder, shocks_monthly.mat)
+% All default paths are ABSOLUTE (resolved by ea_paths), so this runs from
+% any working directory.
 %
 % OUTPUT
 % ------
@@ -53,10 +57,14 @@ function shocks = build_shock_series(opts)
 % SANITY REFERENCE (soft checks, computed from the workbook shipped with
 % this module, window 2001m1-2019m12; a quarterly EA-EMPD update will move
 % these slightly -- warnings, not errors):
-%   GC_ME events 221; monthly mps_gc_1y std 4.29 bp, min -18.20, max 21.19,
-%   23 zero months; JK keeps 114/221 events (51.6%), monthly std 3.52 bp;
-%   speeches kept after filters 1596/2701; mps_all_1y std 5.12 bp, corr
-%   with mps_gc_1y 0.856, 1 zero month; mps_all_tgt std 4.90 bp.
+%   GC_ME events 221; monthly mps_gc_1y std 4.29 bp, 24 zero months;
+%   JK keeps 115/221 classifiable events (113 strictly opposite-sign plus
+%   2 with an exactly zero OIS_1Y move, which the documented tie rule
+%   below assigns to the policy series), monthly std 3.51 bp; speeches
+%   kept after filters 1596; mps_all_1y std 5.12 bp, corr with mps_gc_1y
+%   0.856; mps_all_tgt std 4.90 bp.  These are the values the SHIPPED
+%   ea_empd_events.csv reproduces exactly; a quarterly EA-EMPD update
+%   will move them slightly (warnings, not errors).
 %
 % NOTES
 % -----
@@ -67,12 +75,19 @@ function shocks = build_shock_series(opts)
 % * Sign convention: positive surprise = unexpected TIGHTENING (rate up).
 
 if nargin < 1, opts = struct(); end
-opts = set_default(opts, 'csv_path', fullfile('data', 'raw', 'ea_empd_events.csv'));
+
+% Self-sufficient on the path, whatever the working directory is.
+if exist('ea_paths', 'file') ~= 2
+    addpath(genpath(fileparts(fileparts(fileparts(mfilename('fullpath'))))));
+end
+P = ea_paths();
+
+opts = set_default(opts, 'csv_path', fullfile(P.raw, 'ea_empd_events.csv'));
 opts = set_default(opts, 'y0', 1999);  opts = set_default(opts, 'm0', 1);
 opts = set_default(opts, 'y1', 2025);  opts = set_default(opts, 'm1', 12);
 opts = set_default(opts, 'max_adj', 6);
-opts = set_default(opts, 'out_csv', fullfile('data', 'derived', 'shocks_monthly.csv'));
-opts = set_default(opts, 'out_mat', fullfile('data', 'derived', 'shocks_monthly.mat'));
+opts = set_default(opts, 'out_csv', fullfile(P.derived, 'shocks_monthly.csv'));
+opts = set_default(opts, 'out_mat', fullfile(P.derived, 'shocks_monthly.mat'));
 
 % --- read the events csv -------------------------------------------------
 fid = fopen(opts.csv_path, 'r');
@@ -178,9 +193,9 @@ end
 w  = shocks.ym >= 12 * 2001 + 1 & shocks.ym <= 12 * 2019 + 12;
 we = ev_ym >= 12 * 2001 + 1 & ev_ym <= 12 * 2019 + 12;
 fprintf('build_shock_series: %d events read; window 2001m1-2019m12:\n', n_ev);
-fprintf('  GC_ME events %d (ref 221) | mps_gc_1y std %.2f bp (ref 4.29), zero months %d (ref ~23)\n', ...
+fprintf('  GC_ME events %d (ref 221) | mps_gc_1y std %.2f bp (ref 4.29), zero months %d (ref 24)\n', ...
         sum(shocks.n_gc(w)), std_(shocks.mps_gc_1y(w)), sum(shocks.mps_gc_1y(w) == 0));
-fprintf('  JK kept %d of %d classifiable GC events (ref 114/221) | std %.2f bp (ref 3.52)\n', ...
+fprintf('  JK kept %d of %d classifiable GC events (ref 115/221) | std %.2f bp (ref 3.51)\n', ...
         sum(ev_jk_kept & we), sum(ev_gc_class & we), std_(shocks.mps_gc_jk(w)));
 fprintf('  speeches kept %d (ref 1596) | mps_all_1y std %.2f bp (ref 5.12), corr with GC %.3f (ref 0.856)\n', ...
         sum(shocks.n_speech(w)), std_(shocks.mps_all_1y(w)), ...
@@ -190,9 +205,18 @@ fprintf('  mps_all_tgt std %.2f bp (ref 4.90)\n', std_(shocks.mps_all_tgt(w)));
 shocks.meta = opts;
 
 % --- write ---------------------------------------------------------------
+% NOTE: check the directory with isfolder-style semantics on an ABSOLUTE
+% path.  With a relative path this is a trap: exist('data/derived','dir')
+% searches the load path and answers 7 once genpath has added the folder,
+% so the mkdir is skipped -- while fopen(...,'w') resolves against the
+% CURRENT DIRECTORY and fails with a bare -1.
 outdir = fileparts(opts.out_csv);
-if ~isempty(outdir) && ~exist(outdir, 'dir'), mkdir(outdir); end
+if ~isempty(outdir) && exist(outdir, 'dir') ~= 7
+    [okdir, msg] = mkdir(outdir);
+    assert(okdir == 1, 'build_shock_series: cannot create %s (%s)', outdir, msg);
+end
 fid = fopen(opts.out_csv, 'w');
+assert(fid > 0, 'build_shock_series: cannot open %s for writing.', opts.out_csv);
 fprintf(fid, ['year,month,mps_gc_1y,mps_gc_3m,mps_gc_jk,mps_gc_info,' ...
               'mps_all_1y,mps_all_tgt,n_gc,n_speech\n']);
 for k = 1:n

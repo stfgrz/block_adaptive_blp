@@ -161,10 +161,15 @@ cfg.mode = 'prototype';
 % FMAR replication-code defaults)
 % ---------------------------------------------------------------------
 cfg.fmar.Vc         = 1e5;      % prior variance of the constant (their lambdaC)
-cfg.fmar.isrw       = false;    % random-walk prior centre for the BVAR
-                                % (false: white-noise centre, right for the
-                                % stationary simulated DGPs; set true for
-                                % levels data in empirical work)
+cfg.fmar.isrw       = false;    % random-walk prior centre for the BVAR.
+                                % Scalar (all K variables alike) or a 1 x K
+                                % vector.  false = white-noise centre, right
+                                % for the stationary simulated DGPs; true for
+                                % all-levels data.  Mixed systems need the
+                                % vector form -- the Ch. 7 empirical system
+                                % uses [0 1 1 1 1], a white-noise centre for
+                                % the policy surprise and random walks for
+                                % the four levels (see empirical/).
 cfg.fmar.lambda_min = 1e-4;     % FMAR/GLP optimisation bounds for lambda
 cfg.fmar.lambda_max = 5;
 cfg.fmar.hyper_mode = 0.4;      % Gamma hyperprior mode (all horizons)
