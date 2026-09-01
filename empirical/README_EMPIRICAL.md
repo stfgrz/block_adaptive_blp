@@ -24,6 +24,7 @@ empirical/
     assemble_dataset.m       -> data/ea_dataset.mat
     read_sdmx_csv.m          minimal SDMX-CSV reader
     ea_check_series.m        input validation (see "Data integrity" below)
+    ea_extract_series.m      reduce an over-broad Eurostat export to 1 series
     raw/ea_empd_events.csv   shipped: 4832 events, 1999-01-07..2025-10-30
     raw/placeholder_rejected/  quarantined fake data — read its README
   dgp/simulate_fitted_bvar_dgp.m      the null bootstrap
@@ -84,13 +85,25 @@ constant-increment series. Thresholds and reasoning are in the header of
 only after looking at the series and deciding a fingerprint is a false
 alarm.
 
-**The four outcome-series URLs are unverified.** They were written from
-portal documentation and could not be tested from the environment this
-package was prepared in (`ec.europa.eu` and `data-api.ecb.europa.eu` are
-both unreachable from it). Several candidates are tried per series,
-including the 2021 = 100 base Eurostat has been migrating STS datasets to.
-A different index base year is harmless: the variables enter as
-`100*log(index)`, so a rescaling is absorbed by the constant.
+**On the URLs.** The three ECB/HICP keys are confirmed working. The
+Eurostat industrial-production key was corrected after a live run: the
+indicator code is **`PRD`** (not `PROD`) and the current index base is
+**`I21`** (2021 = 100), giving
+`sts_inpr_m/M.PRD.B-D.SCA.I21.EA20`. A different index base year is
+harmless anyway: the variables enter as `100*log(index)`, so a rescaling
+is absorbed by the constant.
+
+**Over-broad exports.** The Eurostat Data Browser exports every geo and
+activity if you leave those filters open — one file with dozens of
+stacked series, which parses but is not a series. `ea_check_series`
+catches it (duplicated `TIME_PERIOD`). Rather than re-downloading:
+
+```matlab
+ea_extract_series('empirical/data/raw/ip_ea.csv');          % list dimensions
+ea_extract_series('empirical/data/raw/ip_ea.csv', ...       % reduce in place
+                  'empirical/data/raw/ip_ea.csv', ...
+                  struct('geo', 'EA20', 'nace_r2', 'B-D'));
+```
 
 ## The vectorised `isrw` prior mean (already applied)
 
