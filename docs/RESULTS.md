@@ -303,6 +303,42 @@ integrated ratio from a reliably-worse 1.012 (`t = 3.9`) to
 indistinguishable from the baseline: **1.003, `t = 0.67`**. The pooled
 estimator buys the early-horizon bias reduction essentially for free.
 
+### Where adaptation actively hurts: the intermediate DGP
+
+`results/mc_headline_intermediate.mat`, `R = 250`. Same lag-3
+misspecification, but present in **every equation** (`A3(:,1) ≠ 0`)
+rather than in one.
+
+| estimator | early (2–6) | h=2–12 | all (2–20) | late (7–20) |
+|---|---|---|---|---|
+| BLP-block | 1.033 (t +9.1) | 1.034 (t +9.6) | 1.025 (t +6.2) | 1.019 (t +3.2) |
+| BLP-pooled | 1.040 (t +7.3) | 1.031 (t +6.5) | 1.014 (t +2.7) | 0.996 (t −0.5) |
+
+**The sparse pattern reverses.** Adaptation is worse at *every* horizon
+window and worst **early** — precisely where, on the sparse DGP, it was
+best. The τ diagnostic still localises perfectly here (concentration
+1.00 in the grid), so this is not a failure to find the conflict; it is
+a failure of the *response* to finding it.
+
+The reason is the one the design was built to expose. The group
+horseshoe buys its advantage from **sparsity in the deviation from the
+VAR centre**. When the same block deviates in every equation, that
+deviation is not sparse in the relevant sense: what the data want is a
+*global* loosening, which the FMAR baseline gets for free by selecting a
+looser `lambda_h`, and the per-block escape adds variance without buying
+the right bias reduction.
+
+So the method needs the conflict confined to a block **within an
+equation**, not merely to a block. That is a real restriction on when it
+should be used, and it is not something the τ map warns you about — the
+map looks *identical* in the case where adaptation helps and the case
+where it hurts.
+
+(Note also that the BVAR comparator flips here: 1.279 against the FMAR
+baseline, where on the sparse DGP it was 0.798. With the
+misspecification present in every equation the VAR's bias finally
+dominates its variance advantage.)
+
 ### Bias and variance, sparse DGP, R = 500
 
 | estimator | h=2–20 \|bias\| | var | h=2–6 \|bias\| | var | h=7–20 \|bias\| | var |

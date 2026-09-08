@@ -119,10 +119,15 @@ Everything else — detrending, prior centre, Newey–West long-run scales,
   less precisely, and τ faithfully reports that disagreement. The null
   has to be simulated for the specification at hand.
 * **Adaptation under non-localised conflict.** When the same block is
-  wrong in every equation (the intermediate DGP) or the prior is wrong
-  in many places at once (`p = 1`), both adaptive estimators lose by
-  ~3% even though the diagnostic localises perfectly. Block adaptation
-  needs the conflict confined to a block *within an equation*.
+  wrong in *every* equation (the intermediate DGP, `R = 250`) the sparse
+  pattern **reverses**: adaptation is worse at every horizon window and
+  worst *early* (1.033–1.040, `t = +7` to `+9`), exactly where it was
+  best on the sparse DGP. The τ map localises perfectly there and looks
+  identical to the case where adaptation helps, so **the diagnostic does
+  not warn you when the response will hurt**. Block adaptation needs the
+  conflict confined to a block *within an equation*, not merely to a
+  block — otherwise a global loosening of `lambda_h`, which the baseline
+  gets for free, serves better.
 * **Broad generalisation.** The experiment grid varies one factor at a
   time around a baseline and cannot identify interactions.
 * **Empirical usefulness.** The Chapter 7 application has no completed
