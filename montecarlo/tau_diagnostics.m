@@ -61,12 +61,20 @@ function d = tau_diagnostics(mc, which_est, early_H)
 %       mildly favoured even under correct specification.  The honest
 %       null is therefore the SAME STATISTIC COMPUTED ON THE CORRECT-DGP
 %       RUN, which is why every reported detection number is quoted next
-%       to it.  On the R = 500 runs: 0.98 (sparse, the true cell) against
-%       0.38 (correct), with 1/G = 0.33.  The aggregate flag rules below,
-%       by contrast, average tau over equations BEFORE comparing blocks,
-%       which dilutes a signal confined to one equation almost to
-%       nothing -- on this project's designs they do not discriminate at
-%       all, and that is reported rather than hidden.
+%       to it.  On the R = 500 headline runs: 0.97 (sparse, the true
+%       cell) against 0.37 (correct), with 1/G = 0.33.
+%       The aggregate flag rules below average tau over equations BEFORE
+%       comparing blocks, which dilutes a signal confined to one
+%       equation.  How much that costs depends on the rule, and the two
+%       must not be lumped together:
+%         * the RATIO rules do not discriminate at all -- 0.04 on the
+%           sparse DGP against 0.07 on the correct one at threshold 1.5;
+%         * the PROBABILITY rule does -- 0.74 against 0.03 at q = 0.50,
+%           i.e. a genuine test at a 3% false-positive rate.
+%       Detection ("is anything escaping?") and localisation ("where?")
+%       are different jobs and need different statistics: the
+%       probability rule for the first, the concentration statistic for
+%       the second.
 %   .argmax_cell / .argmax_cell_early
 %       which (equation, block) attains that maximum.
 %
