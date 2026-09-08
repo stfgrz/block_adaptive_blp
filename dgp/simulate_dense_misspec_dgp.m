@@ -81,6 +81,10 @@ dgp.misspec_block = [];
 % No finite VAR order nests a VARMA, so unlike the sparse and
 % intermediate designs this stays misspecified at every cfg.p.
 dgp.fitted_p_nests_truth = false;
+% Misspecified at every lag order, but with NO unique block to find:
+% misspec_block = [] here means "nothing localisable", not "nothing
+% wrong".  A tau flag on this DGP is therefore not a false positive.
+dgp.is_misspecified = (dense_scale ~= 0);
 dgp.params        = struct('dense_scale', dense_scale);
 dgp.description   = sprintf(['True VARMA(2,1): baseline VAR(2) plus a dense ' ...
     'MA(1) term in all equations, scaled by %.2f. The fitted VAR(2) omits ' ...

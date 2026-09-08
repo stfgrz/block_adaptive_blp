@@ -102,6 +102,12 @@ else
     dgp.misspec_block = 1;
 end
 dgp.fitted_p_nests_truth = (cfg.p >= 3);
+% Is the FITTED model misspecified at all?  Not the same question as
+% "is there a unique block to find": the dense DGP is misspecified with
+% no unique block, and this design with a31 = 0 or p >= 3 has a unique
+% block name but nothing wrong.  Both facts are recorded separately so a
+% flag rate can be labelled correctly.
+dgp.is_misspecified = (a31 ~= 0) && ~dgp.fitted_p_nests_truth;
 dgp.params        = struct('sparse_a31', a31);
 dgp.description   = sprintf(['True VAR(3): baseline VAR(2) plus an omitted ' ...
     'delayed effect of the shock variable on y_3 (A3(3,1) = %.2f). ' ...

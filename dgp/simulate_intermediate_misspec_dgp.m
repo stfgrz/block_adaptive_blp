@@ -91,6 +91,7 @@ else
     dgp.misspec_block = 1;
 end
 dgp.fitted_p_nests_truth = (cfg.p >= 3);
+dgp.is_misspecified = (a ~= 0) && ~dgp.fitted_p_nests_truth;
 dgp.params        = struct('interm_scale', a, 'interm_load', l');
 dgp.description   = sprintf(['True VAR(3): baseline VAR(2) plus an omitted ' ...
     'delayed effect of the shock variable in EVERY equation ' ...

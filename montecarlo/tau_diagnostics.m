@@ -78,6 +78,11 @@ function d = tau_diagnostics(mc, which_est, early_H)
 %                       .prob_thresholds.
 %   .joint_detect_ratio / .joint_detect_prob
 %                       flag fired AND pointed at the true block.
+% .false_positive marks a run in which NOTHING is misspecified, so its
+% flag rates are false-positive rates.  .no_unique_block marks a run
+% (the dense DGP) that IS misspecified but has no single block to find:
+% its flags are neither detections nor false positives, and reporting
+% them as either would be wrong.
 % On the 'correct' DGP every flag is by construction a FALSE POSITIVE,
 % and .false_positive = true marks the struct so a caller cannot
 % misread the same field on a misspecified DGP.
@@ -136,17 +141,38 @@ d.est = which_est;
 d.dgp_name = mc.dgp_name;
 d.misspec_block = mc.misspec_block;
 d.R = R;  d.K = K;  d.G = G;  d.H = H;  d.early_H = early_H;
-% A run is a FALSE-POSITIVE setting whenever nothing is misspecified --
-% which is not only the 'correct' DGP: with a fitted lag order that NESTS
-% the truth (cfg.p >= 3 on the sparse and intermediate designs) the prior
-% centre is correct too, and every flag is a false positive there as
-% well.  run_montecarlo records that as mc.fitted_p_nests_truth.
-d.false_positive = strcmp(mc.dgp_name, 'correct') || isempty(mc.misspec_block);
-if isfield(mc, 'fitted_p_nests_truth') && ~isempty(mc.fitted_p_nests_truth) ...
-        && mc.fitted_p_nests_truth
-    d.false_positive = true;
+% TWO DIFFERENT THINGS, kept apart:
+%   .false_positive  -- NOTHING is misspecified, so every flag is by
+%                       construction a false positive.  True for the
+%                       'correct' DGP, and also whenever the fitted lag
+%                       order NESTS the truth (cfg.p >= 3 on the sparse
+%                       and intermediate designs) or the misspecification
+%                       strength is set to zero.
+%   .no_unique_block -- something IS wrong but there is no single block
+%                       to find, as on the dense (VARMA) DGP.  A flag
+%                       there is NOT a false positive; it is a correct
+%                       signal that the diagnostic cannot localise.
+% Conflating the two would let the dense DGP's flag rate be reported as a
+% false-positive rate, which it is not.
+if isfield(mc, 'is_misspecified') && ~isempty(mc.is_misspecified)
+    is_miss = logical(mc.is_misspecified);
+else
+    % Fallback for results stored before the flag existed: infer it from
+    % the design.  'dense' is misspecified at every lag order; 'correct'
+    % never is; the sparse and intermediate designs are misspecified
+    % exactly when they named a block.
+    switch mc.dgp_name
+        case 'correct', is_miss = false;
+        case 'dense',   is_miss = true;
+        otherwise,      is_miss = ~isempty(mc.misspec_block);
+    end
 end
-d.fitted_p_nests_truth = d.false_positive && ~strcmp(mc.dgp_name, 'correct');
+d.false_positive  = ~is_miss;
+d.no_unique_block = is_miss && isempty(mc.misspec_block);
+d.fitted_p_nests_truth = false;
+if isfield(mc, 'fitted_p_nests_truth') && ~isempty(mc.fitted_p_nests_truth)
+    d.fitted_p_nests_truth = mc.fitted_p_nests_truth && ~strcmp(mc.dgp_name, 'correct');
+end
 
 % --- posterior summaries averaged over replications --------------------
 d.tau_bar     = mean(tau_mean, 4);

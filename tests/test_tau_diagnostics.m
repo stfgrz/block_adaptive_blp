@@ -131,6 +131,33 @@ fprintf(['  correct DGP: flagged as a false-positive setting, detection NaN, ' .
         dc.flag_ratio(1), dc.flag_ratio(2), dc.flag_ratio(3), ...
         dc.flag_thresholds(1), dc.flag_thresholds(2), dc.flag_thresholds(3));
 
+% --- 6. "nothing wrong" vs "nothing localisable" -------------------------
+% The dense DGP IS misspecified but has no single block to find.  Marking
+% it a false-positive setting would report its flag rate as a
+% false-positive rate, which it is not.
+cfg_d = cfg;  cfg_d.mc.n_rep = 4;
+mc_d = run_montecarlo(cfg_d, 'dense');
+dd = tau_diagnostics(mc_d, 'block');
+assert(~dd.false_positive, ...
+    'the dense DGP is misspecified and must not be a false-positive setting');
+assert(dd.no_unique_block, ...
+    'the dense DGP has no unique block and must be marked as such');
+assert(~dc.no_unique_block, ...
+    'the correct DGP must not be marked "no unique block" -- nothing is wrong');
+assert(~d.no_unique_block, ...
+    'the sparse DGP has a unique block and must not be marked otherwise');
+% ...and a fitted lag order that nests the truth IS a false-positive setting
+cfg_p = cfg;  cfg_p.p = 3;  cfg_p.mc.n_rep = 4;
+mc_p = run_montecarlo(cfg_p, 'sparse');
+dp = tau_diagnostics(mc_p, 'block');
+assert(dp.false_positive && dp.fitted_p_nests_truth, ...
+    ['a fitted VAR(3) nests the sparse truth, so that run must be a ' ...
+     'false-positive setting']);
+assert(isnan(dp.detect_prob), ...
+    'there is no block to detect when the fitted model nests the truth');
+fprintf(['  dense = misspecified but not localisable; fitted p >= 3 = nothing\n' ...
+         '          wrong at all; the two are kept apart: OK\n']);
+
 % --- 7. legacy result structs --------------------------------------------
 legacy = rmfield(mc_s, 'tau');
 dl = tau_diagnostics(legacy, 'block');

@@ -69,8 +69,16 @@ for k = 1:numel(d)
         p_all = NaN;  p_early = NaN;
     end
 
+    % Recompute the tau diagnostics from the stored replication output
+    % rather than trusting the summary that was saved when the cell ran:
+    % the diagnostic definitions have changed since (the concentration
+    % statistic, and the separation of "nothing is misspecified" from
+    % "nothing is localisable"), and a table assembled from stale
+    % summaries would mix the two vintages silently.
     dg = [];
-    if isfield(s, 'tau_stats') && isfield(s.tau_stats, 'block')
+    if isfield(L, 'mc')
+        dg = tau_diagnostics(L.mc, 'block');
+    elseif isfield(s, 'tau_stats') && isfield(s.tau_stats, 'block')
         dg = s.tau_stats.block;
     end
     [det_prob, det_best, flagr, localises] = localisation(dg);
@@ -78,6 +86,7 @@ for k = 1:numel(d)
         fp = NaN;  conc = NaN;
     else
         fp = dg.false_positive;
+        if isfield(dg, 'no_unique_block') && dg.no_unique_block, fp = 2; end
         if isfield(dg, 'max_argmax_freq_early'), conc = dg.max_argmax_freq_early;
         else, conc = NaN; end
     end
@@ -124,17 +133,20 @@ fclose(fid);
 fprintf('\n%-22s %-12s %7s %7s %7s %7s %6s %5s  %-16s\n', 'case', 'axis', ...
         'r_blk', 'r_pool', 'rE_blk', 'rE_pool', 'conc', 'FP?', 'verdict (block)');
 for e = 1:numel(T)
-    if isnan(T(e).false_positive_setting), fp = '  ?';
-    elseif T(e).false_positive_setting,    fp = ' yes';
-    else,                                  fp = '  no'; end
+    if isnan(T(e).false_positive_setting),   fp = '  ?';
+    elseif T(e).false_positive_setting == 2, fp = ' n/l';   % no localisable block
+    elseif T(e).false_positive_setting,      fp = ' yes';
+    else,                                    fp = '  no'; end
     fprintf('%-22s %-12s %7.3f %7.3f %7.3f %7.3f %6.2f %5s  %-16s\n', T(e).name, T(e).axis, ...
             T(e).ratio_block, T(e).ratio_pooled, T(e).ratio_block_early, ...
             T(e).ratio_pooled_early, T(e).max_concentration_early, fp, T(e).verdict_block);
 end
 fprintf(['\nconc = max over (equation, block) of the early-horizon win rate for the\n' ...
-         'INDEPENDENT scales; FP? = yes means nothing is misspecified in that cell\n' ...
-         '(correct DGP, or a fitted lag order that nests the truth), so its conc is\n' ...
-         'a false-positive baseline rather than a detection rate.\n']);
+         'INDEPENDENT scales.  FP?: yes = nothing is misspecified in that cell\n' ...
+         '(correct DGP, zero strength, or a fitted lag order that nests the truth),\n' ...
+         'so conc is a false-positive baseline; n/l = the cell IS misspecified but\n' ...
+         'has no localisable block (dense/VARMA), so conc is neither; no = there is\n' ...
+         'a true block and conc is a detection rate.\n']);
 fprintf('\ncollect_grid_results: wrote %s (%d cells)\n', out_csv, numel(T));
 fprintf(['Ratios are adaptive / global integrated RMSE; < 1 means adaptation ' ...
          'helps.\nVerdicts use a %.0f%% margin and are a sorting device at ' ...

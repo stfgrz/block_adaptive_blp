@@ -211,6 +211,17 @@ for r = 1:Rn
         else
             mc.fitted_p_nests_truth = [];
         end
+        % Whether the fitted model is misspecified AT ALL.  Distinct from
+        % whether there is a unique block to find: the dense DGP is
+        % misspecified with misspec_block = [], and the sparse design at
+        % a31 = 0 or p >= 3 has nothing wrong.  Keeping the two apart is
+        % what lets a flag rate be labelled a false-positive rate only
+        % when it actually is one.
+        if isfield(dgp, 'is_misspecified')
+            mc.is_misspecified = dgp.is_misspecified;
+        else
+            mc.is_misspecified = [];
+        end
     end
 
     if fmar
@@ -336,6 +347,7 @@ mc.rep_index = rep_index;
 mc.meta  = mc_meta(cfg, dgp_name, d_id, est_keys, est_names, mc.dgp_params, ...
                    mc.misspec_block, seeds, toc(tstart));
 mc.meta.fitted_p_nests_truth = mc.fitted_p_nests_truth;
+mc.meta.is_misspecified      = mc.is_misspecified;
 mc.meta.rep_index = rep_index;
 mc.meta.R_done    = Rn;
 mc.meta.is_complete = (Rn == cfg.mc.n_rep);

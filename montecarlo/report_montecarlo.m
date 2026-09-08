@@ -191,7 +191,11 @@ if isfield(s, 'tau_stats') && isstruct(s.tau_stats)
     for n = 1:numel(names)
         d = s.tau_stats.(names{n});
         fprintf(fid, '\n[4%s] TAU DIAGNOSTICS -- %s scales\n', char('a' + n - 1), d.est);
-        if d.false_positive
+        if isfield(d, 'no_unique_block') && d.no_unique_block
+            fprintf(fid, ['    This DGP IS misspecified but has NO single block to find\n' ...
+                          '    (dense/VARMA): the flags below are neither detections nor\n' ...
+                          '    false positives.\n']);
+        elseif d.false_positive
             if isfield(d, 'fitted_p_nests_truth') && d.fitted_p_nests_truth
                 fprintf(fid, ['    The FITTED lag order nests this DGP''s truth: nothing is\n' ...
                               '    misspecified here, so every flag below is a FALSE POSITIVE.\n']);
