@@ -96,9 +96,16 @@ if isfield(ref, 'tau') && isstruct(ref.tau)
             fprintf(2, ['merge_montecarlo: tau.%s.%s is missing from some ' ...
                         'chunks and was dropped.\n'], f{k}, dropped{j});
         end
+        % Fields that are DESCRIPTIONS of the tau summaries rather than
+        % per-replication arrays.  Identified by NAME, not by size: the
+        % probability grid is 1 x nQ, and a chunk that happened to hold
+        % exactly nQ replications would otherwise be concatenated along
+        % it and silently corrupted.
+        meta_fields = {'probs'};
         for j = 1:numel(sub)
             A0 = ref.tau.(f{k}).(sub{j});
-            if size(A0, ndims(A0)) ~= numel(ref.rep_index)
+            if any(strcmp(sub{j}, meta_fields)) || ...
+                    size(A0, ndims(A0)) ~= numel(ref.rep_index)
                 % Not a per-replication array (e.g. the probability grid
                 % attached to the quantiles, or a replication-averaged
                 % summary): carry it through unchanged after checking the

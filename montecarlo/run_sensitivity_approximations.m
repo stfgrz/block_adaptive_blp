@@ -43,6 +43,17 @@ function S = run_sensitivity_approximations(opts)
 %         effect of tau) against re-selecting lambda_h by marginal
 %         likelihood inside the adaptive estimator.
 %
+% THE YARDSTICK (why a raw "the IRF moved by 0.01" means nothing)
+% ---------------------------------------------------------------
+% Every comparison here re-runs a sampler, so part of any difference is
+% simply that a Markov chain was run twice.  Two things are therefore
+% done.  First, each variant is run from the SAME seed as the baseline,
+% so the streams are paired and only the modelling change differs.
+% Second, a NOISE BASELINE is computed: the identical estimator run from
+% a DIFFERENT seed.  A modelling change that moves the IRF by less than
+% that baseline has not been shown to matter at all.  Every reported
+% change is quoted next to it.
+%
 % C. QUASI-BAYESIAN HAC BANDS.
 %    The primary intervals are FMAR's Newey-West sandwich around the
 %    posterior mean, not posterior quantiles.  Both are computed and
@@ -100,6 +111,7 @@ sd_b1n = zeros(nD, 1);  half_band = zeros(nD, 1);
 sd_centre = zeros(nD, 1);
 dB3_irf = zeros(nD, 1);  dB3_rel = zeros(nD, 1);
 lam_inherit = zeros(nD, 1);  lam_reselect = zeros(nD, 1);
+dN_irf = zeros(nD, 1);  dN_rel = zeros(nD, 1);  dN_tau = zeros(nD, 1);
 
 fprintf('\n=== sensitivity of the three approximations (%s DGP, %d datasets) ===\n', ...
         opts.dgp, nD);
@@ -157,8 +169,21 @@ for r = 1:nD
     end
     sd_centre(r) = mean(mean(std(th_c(:, 3:end, :), 0, 3)));
 
+    % ---- NOISE BASELINE: the same estimator, a different seed --------
+    % Anything smaller than this has not been shown to be a consequence
+    % of a modelling choice rather than of running a chain twice.
+    rng(opts.seed + 5000 + r, 'twister');
+    altN = estimate_blp_blockadaptive(Y, cfg, bvar, blp_f.lambda);
+    dn = abs(altN.theta_mean(:, 3:end) - base.theta_mean(:, 3:end));
+    dN_irf(r) = max(dn(:));
+    dN_rel(r) = max(max(dn ./ max(post_sd(:, 2:end), realmin)));
+    dnt = abs(log(altN.tau_mean) - log(base.tau_mean));
+    dN_tau(r) = max(dnt(:));
+
     % ---- B3. inherited vs re-selected lambda -------------------------
-    rng(opts.seed + 3000 + r, 'twister');
+    % SAME seed as the baseline, so the only difference is where
+    % lambda_h came from.
+    rng(opts.seed + 1000 + r, 'twister');
     altB3 = estimate_blp_blockadaptive(Y, cfg, bvar, []);   % re-select
     d3 = abs(altB3.theta_mean(:, 3:end) - base.theta_mean(:, 3:end));
     dB3_irf(r) = max(d3(:));
@@ -180,7 +205,10 @@ S.B2 = struct('sd_from_prior_centre', mean(sd_centre), ...
               'ratio', mean(sd_centre) / mean(half_band));
 S.B3 = struct('max_dIRF', mean(dB3_irf), 'max_dIRF_over_postsd', mean(dB3_rel), ...
               'lambda_inherited', mean(lam_inherit), ...
-              'lambda_reselected', mean(lam_reselect));
+              'lambda_reselected', mean(lam_reselect), ...
+              'max_lambda_gap', max(abs(lam_inherit - lam_reselect)));
+S.noise = struct('max_dIRF', mean(dN_irf), 'max_dIRF_over_postsd', mean(dN_rel), ...
+                 'max_dlogtau', mean(dN_tau));
 
 % ---- C. sandwich vs posterior-quantile bands -------------------------
 S.C = struct('available', false);
@@ -216,10 +244,22 @@ if ~isfield(o, f) || isempty(o.(f)), o.(f) = v; end
 end
 
 function print_and_write(S, opts)
+fprintf('\n--- NOISE BASELINE: the same estimator, a different seed ---\n');
+fprintf('  (every number below must be read against these)\n');
+fprintf('  max |IRF change| from re-running the chain alone             : %.4f\n', S.noise.max_dIRF);
+fprintf('  the same, relative to the posterior sd of the IRF            : %.3f\n', S.noise.max_dIRF_over_postsd);
+fprintf('  max |change in log tau|                                      : %.3f\n', S.noise.max_dlogtau);
+
 fprintf('\n--- A. cross-equation covariance in the adaptive sampler ---\n');
-fprintf('  max |IRF change| when sigma2 is fixed at the SYSTEM NIW value : %.4f\n', S.A.max_dIRF);
-fprintf('  the same, relative to the posterior sd of the IRF            : %.3f\n', S.A.max_dIRF_over_postsd);
-fprintf('  max |change in log tau|                                      : %.3f\n', S.A.max_dlogtau);
+fprintf('  max |IRF change| when sigma2 is fixed at the SYSTEM NIW value : %.4f  (noise %.4f)\n', ...
+        S.A.max_dIRF, S.noise.max_dIRF);
+fprintf('  the same, relative to the posterior sd of the IRF            : %.3f  (noise %.3f)\n', ...
+        S.A.max_dIRF_over_postsd, S.noise.max_dIRF_over_postsd);
+fprintf('  max |change in log tau|                                      : %.3f  (noise %.3f)\n', ...
+        S.A.max_dlogtau, S.noise.max_dlogtau);
+fprintf('  NOTE: these are MAXIMA over all (equation, horizon) cells of a\n');
+fprintf('        replication, then averaged over replications -- a worst-cell\n');
+fprintf('        measure, not a typical one.\n');
 fprintf('\n--- B1. impact vector b1n held fixed ---\n');
 fprintf('  sd of the IRF induced by b1n posterior uncertainty alone      : %.4f\n', S.B1.sd_from_b1n);
 fprintf('  reported half band-width                                      : %.4f\n', S.B1.reported_half_band);
@@ -228,10 +268,20 @@ fprintf('\n--- B2. prior centre held at the BVAR posterior mean ---\n');
 fprintf('  sd of the IRF across BVAR posterior draws of the centre       : %.4f\n', S.B2.sd_from_prior_centre);
 fprintf('  ratio to the reported half band-width                         : %.3f\n', S.B2.ratio);
 fprintf('\n--- B3. lambda inherited from the global BLP vs re-selected ---\n');
-fprintf('  mean lambda inherited / re-selected                           : %.3f / %.3f\n', ...
+fprintf('  mean lambda inherited / re-selected                           : %.4f / %.4f\n', ...
         S.B3.lambda_inherited, S.B3.lambda_reselected);
-fprintf('  max |IRF change|, and relative to the posterior sd            : %.4f / %.3f\n', ...
+fprintf('  largest gap between the two across datasets                   : %.2e\n', ...
+        S.B3.max_lambda_gap);
+fprintf('  max |IRF change| (same seed), and relative to the posterior sd : %.4f / %.3f\n', ...
         S.B3.max_dIRF, S.B3.max_dIRF_over_postsd);
+if S.B3.max_lambda_gap < 1e-10
+    fprintf(['  => the adaptive estimator''s own marginal-likelihood selection\n' ...
+             '     returns EXACTLY the global BLP''s lambda (same objective, same\n' ...
+             '     data, both evaluated at tau = 1), so inheriting it is not an\n' ...
+             '     approximation at all.  What remains an approximation is that\n' ...
+             '     lambda is selected at tau = 1 and never re-selected jointly\n' ...
+             '     with tau; that would be a different, larger model.\n']);
+end
 if S.C.available
     fprintf('\n--- C. quasi-Bayesian sandwich vs posterior-quantile bands ---\n');
     fprintf('  nominal level                                                 : %.2f\n', S.C.nominal);
@@ -259,6 +309,10 @@ w('B3_fixed_lambda', 'lambda_inherited', S.B3.lambda_inherited);
 w('B3_fixed_lambda', 'lambda_reselected', S.B3.lambda_reselected);
 w('B3_fixed_lambda', 'max_dIRF', S.B3.max_dIRF);
 w('B3_fixed_lambda', 'max_dIRF_over_posterior_sd', S.B3.max_dIRF_over_postsd);
+w('B3_fixed_lambda', 'max_lambda_gap', S.B3.max_lambda_gap);
+w('noise_baseline', 'max_dIRF', S.noise.max_dIRF);
+w('noise_baseline', 'max_dIRF_over_posterior_sd', S.noise.max_dIRF_over_postsd);
+w('noise_baseline', 'max_dlogtau', S.noise.max_dlogtau);
 if S.C.available
     w('C_quasi_bayesian_bands', 'coverage_sandwich', S.C.coverage_sandwich);
     w('C_quasi_bayesian_bands', 'coverage_posterior', S.C.coverage_posterior);

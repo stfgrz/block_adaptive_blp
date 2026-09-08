@@ -62,6 +62,29 @@ assert(isequaln(serial.tau.pooled.mean, merged.tau.pooled.mean), ...
 assert(isequal(serial.seeds(:), merged.seeds(:)), 'merged seeds differ');
 fprintf('  3 chunks merged out of order == serial run, exactly: OK\n');
 
+% The quantile probability grid must survive as a description, not be
+% concatenated: chunks here hold 2 replications and the grid has 5
+% entries, but a chunk size equal to the grid length must not change the
+% answer, so the merge identifies such fields by NAME.  Re-merge with
+% chunks whose size equals numel(probs) to pin that.
+if isfield(merged.tau.block, 'probs')
+    assert(isequal(merged.tau.block.probs, ref_probs(serial)), ...
+        'the tau probability grid was corrupted by the merge');
+    cfg5 = cfg;  cfg5.mc.n_rep = 10;
+    s5 = run_montecarlo(cfg5, 'sparse');
+    c5 = cell(1, 2);
+    for k = 1:2
+        cc = cfg5;  cc.mc.rep_range = [5 * (k - 1) + 1, 5 * k];
+        c5{k} = run_montecarlo(cc, 'sparse');
+    end
+    m5 = merge_montecarlo(c5);
+    assert(isequal(m5.tau.block.probs, s5.tau.block.probs), ...
+        'a chunk size equal to numel(probs) corrupted the probability grid');
+    assert(isequaln(m5.tau.block.q, s5.tau.block.q), ...
+        'the tau quantile array did not survive a 5-replication chunking');
+    fprintf('  tau quantile grid survives a chunk size equal to its own length: OK\n');
+end
+
 % --- 2. bookkeeping -----------------------------------------------------
 assert(merged.meta.is_complete, 'a complete merge was not marked complete');
 assert(isequal(merged.rep_index, 1:6), 'merged rep_index is %s', ...
@@ -120,4 +143,9 @@ assert(strcmp(back.mode, raw.mode) && strcmp(back.blocks.scheme, raw.blocks.sche
 fprintf('  cfg saves, loads and restores its function handle exactly: OK\n');
 
 fprintf('PASS: test_chunk_merge\n\n');
+end
+
+% =====================================================================
+function p = ref_probs(mc)
+p = mc.tau.block.probs;
 end

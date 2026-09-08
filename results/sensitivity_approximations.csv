@@ -1,0 +1,13 @@
+approximation,quantity,value
+A_cross_equation_covariance,max_dIRF,0.01490283028
+A_cross_equation_covariance,max_dIRF_over_posterior_sd,0.2311579742
+A_cross_equation_covariance,max_dlogtau,0.5560493871
+B1_fixed_impact_vector,sd_from_b1n,0.001403502783
+B1_fixed_impact_vector,reported_half_band,0.1343631224
+B1_fixed_impact_vector,ratio,0.01044559517
+B2_fixed_prior_centre,sd_from_prior_centre,0.02217274828
+B2_fixed_prior_centre,ratio,0.1650210853
+B3_fixed_lambda,lambda_inherited,0.1691585068
+B3_fixed_lambda,lambda_reselected,0.1691585068
+B3_fixed_lambda,max_dIRF,0.01097650637
+B3_fixed_lambda,max_dIRF_over_posterior_sd,0.1830800559
