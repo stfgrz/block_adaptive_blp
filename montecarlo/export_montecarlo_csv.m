@@ -19,7 +19,8 @@ function files = export_montecarlo_csv(s, out_stem)
 %   <stem>_tau.csv          one row per (scale estimator, equation,
 %                           block, horizon):
 %       dgp, scale_estimator, equation, block, horizon,
-%       tau_mean, tau_median, p_tau_gt1
+%       tau_mean, tau_median, p_tau_gt1, and the posterior quantiles
+%       tau_q05 ... tau_q95 where the Monte Carlo stored them
 %   <stem>_tau_localization.csv  one row per (scale estimator, metric):
 %       dgp, scale_estimator, metric, index, value
 %       (argmax frequencies, detection probabilities, mean ranks,
@@ -114,15 +115,33 @@ if isfield(s, 'tau_stats') && isstruct(s.tau_stats) && ...
     f3 = [out_stem '_tau.csv'];
     fid = fopen(f3, 'w');
     assert(fid > 0, 'export_montecarlo_csv: cannot write %s', f3);
-    fprintf(fid, 'dgp,scale_estimator,equation,block,horizon,tau_mean,tau_median,p_tau_gt1\n');
+    % Header carries the quantile columns when they are available, so a
+    % reader can see the posterior SHAPE of each tau, not just its mean.
+    qprobs = [];
+    for n = 1:numel(names)
+        if ~isempty(s.tau_stats.(names{n}).tau_q_bar)
+            qprobs = s.tau_stats.(names{n}).tau_q_probs;  break
+        end
+    end
+    fprintf(fid, 'dgp,scale_estimator,equation,block,horizon,tau_mean,tau_median,p_tau_gt1');
+    for q = 1:numel(qprobs), fprintf(fid, ',tau_q%02d', round(100 * qprobs(q))); end
+    fprintf(fid, '\n');
     for n = 1:numel(names)
         d = s.tau_stats.(names{n});
         for i = 1:d.K
             for g = 1:d.G
                 for h = 1:d.H
-                    fprintf(fid, '%s,%s,%d,%d,%d,%.10g,%.10g,%.10g\n', ...
+                    fprintf(fid, '%s,%s,%d,%d,%d,%.10g,%.10g,%.10g', ...
                         dgp, d.est, i, g, h, d.tau_bar(i, g, h), ...
                         d.tau_med_bar(i, g, h), d.p_gt1_bar(i, g, h));
+                    for q = 1:numel(qprobs)
+                        if isempty(d.tau_q_bar)
+                            fprintf(fid, ',NaN');
+                        else
+                            fprintf(fid, ',%.10g', d.tau_q_bar(i, g, h, q));
+                        end
+                    end
+                    fprintf(fid, '\n');
                 end
             end
         end

@@ -84,12 +84,36 @@ if isfield(ref, 'tau_mean'), mc.tau_mean = cat_reps(chunks, 'tau_mean', order); 
 if isfield(ref, 'tau') && isstruct(ref.tau)
     f = fieldnames(ref.tau);
     for k = 1:numel(f)
+        % Only fields present in EVERY chunk can be merged; a field added
+        % between two runs would otherwise be silently taken from one
+        % chunk and presented as covering all replications.
         sub = fieldnames(ref.tau.(f{k}));
+        for c = 2:numel(chunks)
+            sub = intersect(sub, fieldnames(chunks{c}.tau.(f{k})));
+        end
+        dropped = setdiff(fieldnames(ref.tau.(f{k})), sub);
+        for j = 1:numel(dropped)
+            fprintf(2, ['merge_montecarlo: tau.%s.%s is missing from some ' ...
+                        'chunks and was dropped.\n'], f{k}, dropped{j});
+        end
         for j = 1:numel(sub)
+            A0 = ref.tau.(f{k}).(sub{j});
+            if size(A0, ndims(A0)) ~= numel(ref.rep_index)
+                % Not a per-replication array (e.g. the probability grid
+                % attached to the quantiles, or a replication-averaged
+                % summary): carry it through unchanged after checking the
+                % chunks agree on it.
+                for c = 2:numel(chunks)
+                    assert(isequaln(A0, chunks{c}.tau.(f{k}).(sub{j})), ...
+                        'merge_montecarlo: chunks disagree on tau.%s.%s.', ...
+                        f{k}, sub{j});
+                end
+                mc.tau.(f{k}).(sub{j}) = A0;
+                continue
+            end
             A = [];
             for c = 1:numel(chunks)
-                A = cat(ndims(ref.tau.(f{k}).(sub{j})), A, ...
-                        chunks{c}.tau.(f{k}).(sub{j}));
+                A = cat(ndims(A0), A, chunks{c}.tau.(f{k}).(sub{j}));
             end
             mc.tau.(f{k}).(sub{j}) = reorder_last(A, order);
         end
@@ -137,6 +161,7 @@ switch nd
     case 2, A = A(:, order);
     case 3, A = A(:, :, order);
     case 4, A = A(:, :, :, order);
+    case 5, A = A(:, :, :, :, order);
     otherwise
         error('reorder_last: unsupported %d-d array.', nd);
 end

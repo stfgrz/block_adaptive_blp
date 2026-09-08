@@ -26,6 +26,11 @@ function d = tau_diagnostics(mc, which_est, early_H)
 %   .tau_bar, .tau_med_bar, .p_gt1_bar   (K x G x H)
 %       MC averages of the posterior mean, posterior median and
 %       posterior P(tau > 1) of each tau_{i,g,h}.
+%   .tau_q_bar (K x G x H x nQ) at .tau_q_probs
+%       MC average of the posterior QUANTILES of each tau_{i,g,h}.  A
+%       large posterior mean can come from a shifted posterior or from a
+%       heavy right tail; only the quantiles tell them apart, and the
+%       half-Cauchy prior makes the second possibility a real one.
 %   .tau_rep_q (G x 5)
 %       quantiles ACROSS REPLICATIONS (0.05/0.25/0.5/0.75/0.95) of the
 %       replication-level aggregate tau_rep(g,r) = mean over (i,h).
@@ -132,6 +137,18 @@ d.tau_bar     = mean(tau_mean, 4);
 d.tau_med_bar = mean(tau_med, 4);
 d.p_gt1_bar   = mean(p_gt1, 4);
 d.have_prob   = have_prob;
+% Posterior quantiles of each tau_{i,g,h}, averaged over replications.
+% Reported alongside the mean because a large mean can come either from
+% a shifted posterior or from a heavy right tail, and only the quantiles
+% distinguish the two.
+d.tau_q_bar = [];  d.tau_q_probs = [];
+if isfield(mc, 'tau') && isstruct(mc.tau) && isfield(mc.tau, which_est)
+    Sq = mc.tau.(which_est);
+    if isfield(Sq, 'q') && ~isempty(Sq.q)
+        d.tau_q_bar   = mean(Sq.q, 5);          % (K x G x H x nQ)
+        d.tau_q_probs = Sq.probs;
+    end
+end
 
 % --- replication-level aggregates --------------------------------------
 tau_rep = zeros(G, R);

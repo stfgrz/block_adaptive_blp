@@ -70,7 +70,9 @@ function mc = run_montecarlo(cfg, dgp_name)
 %                                 compatibility with earlier results)
 %   .tau        struct with per-estimator scale summaries:
 %                 .block / .pooled, each with
-%                 .mean/.med/.p_gt1 (K x G x H x R)
+%                 .mean/.med/.p_gt1 (K x G x H x R) and
+%                 .q (K x G x H x nQ x R), the posterior quantiles of
+%                 each tau at the probabilities in .probs
 %   .lambda     (nE x K x H x R)  tightness actually used (NaN for LP/VAR)
 %   .lo_post/.hi_post (nE x K x (H+1) x R) posterior-quantile bands for
 %               the sampled estimators (NaN elsewhere).  The PRIMARY
@@ -159,6 +161,10 @@ lambda_store = nan(nE, K, H, R);
 lo_post = nan(nE, K, H + 1, R);
 hi_post = nan(nE, K, H + 1, R);
 tauB = zeros(K, G, H, R);  tauB_med = zeros(K, G, H, R);  tauB_p1 = zeros(K, G, H, R);
+% Posterior QUANTILES of every tau_{i,g,h}, averaged over replications at
+% the end: the mean and median alone do not say whether a large scale is
+% a shifted posterior or a heavy right tail.
+tauB_q = [];  tauP_q = [];
 if want_pooled
     tauP = zeros(K, G, H, R);  tauP_med = zeros(K, G, H, R);  tauP_p1 = zeros(K, G, H, R);
     kappaP = zeros(K, G, R);
@@ -243,10 +249,16 @@ for r = 1:Rn
     tauB(:, :, :, r)     = blp_b.tau_mean;
     tauB_med(:, :, :, r) = blp_b.tau_med;
     if isfield(blp_b, 'p_tau_gt1'), tauB_p1(:, :, :, r) = blp_b.p_tau_gt1; end
+    if isfield(blp_b, 'tau_q')
+        if isempty(tauB_q), tauB_q = zeros([size(blp_b.tau_q), R]); end
+        tauB_q(:, :, :, :, r) = blp_b.tau_q;
+    end
     if want_pooled
         tauP(:, :, :, r)     = blp_p.tau_mean;
         tauP_med(:, :, :, r) = blp_p.tau_med;
         tauP_p1(:, :, :, r)  = blp_p.p_tau_gt1;
+        if isempty(tauP_q), tauP_q = zeros([size(blp_p.tau_q), R]); end
+        tauP_q(:, :, :, :, r) = blp_p.tau_q;
         kappaP(:, :, r)      = blp_p.kappa_mean;
         accP(r) = mean(blp_p.diag.acc_rate(:));
         essP(r) = mean(blp_p.diag.ess_logtau(:));
@@ -282,11 +294,23 @@ mc.tau_mean = tauB;                       % backward-compatible top level
 mc.tau.block.mean = tauB;
 mc.tau.block.med  = tauB_med;
 mc.tau.block.p_gt1 = tauB_p1;
+if ~isempty(tauB_q)
+    % Stored PER REPLICATION (K x G x H x nQ x R), like every other tau
+    % array, so that chunks of a parallel run merge by concatenation and
+    % a merged result is identical to a serial one.  About 3.6 MB at
+    % R = 500; tau_diagnostics averages over the last dimension.
+    mc.tau.block.q      = tauB_q;
+    mc.tau.block.probs  = blp_b.tau_probs;
+end
 if want_pooled
     mc.tau.pooled.mean  = tauP;
     mc.tau.pooled.med   = tauP_med;
     mc.tau.pooled.p_gt1 = tauP_p1;
     mc.tau.pooled.kappa = kappaP;
+    if ~isempty(tauP_q)
+        mc.tau.pooled.q     = tauP_q;
+        mc.tau.pooled.probs = blp_p.tau_probs;
+    end
     mc.diag.pooled_acc_rate  = accP;
     mc.diag.pooled_ess_logtau = essP;
 end
