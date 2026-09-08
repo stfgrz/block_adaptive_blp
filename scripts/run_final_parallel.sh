@@ -43,12 +43,18 @@ for ((c = 0; c < NCHUNK; c++)); do
 done
 wait
 
+# NOTE for anyone editing the --eval block below: bash removes the
+# backslash-newlines, so the whole thing reaches Octave as ONE line.  A
+# '%' comment inside it would comment out everything after it.  Keep the
+# code comment-free and put explanations in named functions instead
+# (that is why the compaction step is montecarlo/compact_mc.m).
 octave-cli --no-gui --quiet --eval \
   "addpath(genpath('$ROOT')); \
    fl = {${FILES%,}}; ch = cell(1, numel(fl)); \
    for k = 1:numel(fl), L = load(fl{k}); ch{k} = L.mc; end; \
    mc = merge_montecarlo(ch); \
    s = summarize_montecarlo(mc); \
+   mc = compact_mc(mc); \
    stem = sprintf('mc_headline_%s', '$DGP'); \
    out = fullfile('$ROOT', 'results', [stem '.mat']); \
    save(out, 'mc', 's', '-v7'); \
