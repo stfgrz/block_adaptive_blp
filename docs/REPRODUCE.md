@@ -80,6 +80,19 @@ scripts/run_final_parallel.sh intermediate 250 4
 scripts/run_final_parallel.sh dense        250 4
 ```
 
+These take hours. Start them **detached**, or an interruption of the
+launching shell takes the workers with it (which is exactly what
+happened once here — the workers shared the shell's process group and
+were killed mid-run):
+
+```bash
+setsid nohup scripts/run_remaining_finals.sh > finals.log 2>&1 < /dev/null &
+```
+
+Progress is easiest to follow through the chunk files appearing in
+`results/chunks/`; Octave block-buffers stdout when it is redirected, so
+the per-chunk logs lag well behind the actual work.
+
 Each call writes `results/mc_headline_<dgp>.mat` plus the CSV exports.
 Roughly 3 hours per `R = 500` DGP on 4 cores.
 
