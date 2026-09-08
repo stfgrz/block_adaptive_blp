@@ -51,6 +51,55 @@ DGP, so any escape is a false positive.
 
 ---
 
+## What the adaptive layer actually does
+
+Before any RMSE table, it helps to know what `tau` does in practice,
+because "escape from the VAR prior" turns out to be only half of it.
+
+On the `R = 500` sparse run, the posterior mean of `tau` in the
+misspecified equation `y_3`, by block and horizon, is
+
+| block | h=1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **1** (misspecified) | 0.28 | **2.16** | **1.49** | **1.57** | **1.58** | **1.52** | 1.42 | 1.33 | 1.23 | 1.17 | 1.14 | 1.11 |
+| 2 | 0.28 | 0.59 | 0.72 | 0.77 | 0.81 | 0.87 | 0.93 | 0.99 | 1.04 | 1.06 | 1.08 | 1.09 |
+| 3 | 0.28 | 0.53 | 0.64 | 0.70 | 0.75 | 0.81 | 0.84 | 0.88 | 0.91 | 0.96 | 0.98 | 1.01 |
+
+and on the correctly specified run the same table has **no** contrast
+between blocks (0.29 / 0.29 / 0.30 at `h = 1`, rising to ~1.05 at
+`h = 12` in all three).
+
+Three things follow, and they shape how everything below should be read.
+
+**1. The signal is a WITHIN-equation, WITHIN-horizon contrast, not a
+level.** `tau` rises with the horizon under *both* DGPs — that is a
+property of how much the horizon-`h` regression has to say about the
+deviation, not of misspecification. Comparing block 1 against blocks 2
+and 3 *at the same horizon in the same equation* removes that common
+profile, which is exactly what the argmax/concentration diagnostic does
+and why it works while threshold rules on the level of `tau` do not.
+
+**2. The adaptive layer TIGHTENS as often as it escapes.** Averaged over
+all (equation, block, horizon) cells the posterior mean of `tau` is
+**0.965** on the sparse DGP and **0.964** on the correct one. The
+group-horseshoe is therefore not only an escape device: where the VAR
+prior fits, it shrinks *harder* than the global prior, which buys
+variance. Only the conflicted block goes above 1. This is why adaptation
+can help even on the correctly specified DGP, which the exploratory grid
+does show, and it is a more interesting mechanism than "let the wrong
+block out".
+
+**3. The `h = 1` value 0.28 was an artefact of the unfair comparison.**
+Under the FMAR convention the adaptive estimators inherited the *BVAR's*
+Minnesota tightness at `h = 1` (0.27) for what is an LP regression whose
+own marginal-likelihood tightness is about 0.10. The prior was far too
+loose, and `tau` shrank to compensate. With `cfg.fmar.h1_mode = 'lp'`
+the `h = 1` regression gets an LP tightness and this collapses; it is
+also why the legacy `h = 1..H` integrated RMSE moves with the `h = 1`
+convention while `irmse_h2` does not.
+
+---
+
 ## 1. Established: exact nesting
 
 `tests/test_fmar_nesting_exact.m`. With `tau = 1`, both adaptive

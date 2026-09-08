@@ -47,6 +47,14 @@ addpath(fullfile(this_dir, 'config'), fullfile(this_dir, 'dgp'), ...
 results_dir = fullfile(this_dir, 'results');
 if ~exist(results_dir, 'dir'), mkdir(results_dir); end
 
+% Figures are optional: on a headless machine Octave may have no
+% graphics toolkit at all, and `figure` would then abort the script
+% AFTER the expensive estimation and BEFORE anything is printed.
+[CAN_PLOT, PLOT_WHY] = can_plot();
+if ~CAN_PLOT
+    fprintf('[figures skipped: %s]\n', PLOT_WHY);
+end
+
 cfg = default_config();
 cfg.mode = 'fmar';
 cfg.fmar.h1_mode = 'lp';        % like-for-like at h = 1 (see the header)
@@ -111,11 +119,13 @@ est_list = { ...
   struct('name', 'BLP-FMAR',  'theta', blp_f.theta_mean,'lo', blp_f.lo, 'hi', blp_f.hi, 'show_band', false), ...
   struct('name', 'BLP-block', 'theta', blp_b.theta_mean,'lo', blp_b.lo, 'hi', blp_b.hi, 'show_band', true), ...
   struct('name', 'BLP-pooled','theta', blp_p.theta_mean,'lo', blp_p.lo, 'hi', blp_p.hi, 'show_band', false)};
-fig1 = plot_irfs(dgp.theta_true, est_list, cfg, ...
-                 'FMAR mode: IRFs, sparse misspecification');
-if cfg.demo.save_figures
-    print(fig1, fullfile(results_dir, 'fig_fmar_irf_sparse.png'), '-dpng', '-r120');
-    fprintf('  Figure saved to results/fig_fmar_irf_sparse.png\n\n');
+if CAN_PLOT
+    fig1 = plot_irfs(dgp.theta_true, est_list, cfg, ...
+                     'FMAR mode: IRFs, sparse misspecification');
+    if cfg.demo.save_figures
+        print(fig1, fullfile(results_dir, 'fig_fmar_irf_sparse.png'), '-dpng', '-r120');
+        fprintf('  Figure saved to results/fig_fmar_irf_sparse.png\n\n');
+    end
 end
 
 % ----------------------------------------------------------------------
