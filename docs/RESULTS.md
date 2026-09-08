@@ -102,6 +102,33 @@ the `h = 1` regression gets an LP tightness and this collapses; it is
 also why the legacy `h = 1..H` integrated RMSE moves with the `h = 1`
 convention while `irmse_h2` does not.
 
+### Why horizon pooling changes the picture
+
+The independent estimator identifies each `tau_{i,g,h}` from `p_g = p`
+coefficient deviations at a single horizon. The pooled estimator ties
+the `H` horizons of one block together, so the same scale is informed by
+roughly `H` times as much data. The consequence is visible in both
+directions at once, on a single sparse dataset (`RUN_FMAR_DEMO`, `y_3`
+equation, `h = 1..8`):
+
+| | h=1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| `tau`, block 1, independent | 0.49 | 2.92 | 1.64 | 1.90 | 1.79 | 1.80 | 1.43 | 1.41 |
+| `tau`, block 1, **pooled** | 1.57 | 1.70 | 1.69 | 1.65 | 1.64 | 1.60 | 1.53 | 1.43 |
+| `tau`, block 3, independent | 0.52 | 0.55 | 0.55 | 0.67 | 0.62 | 0.64 | 0.57 | 0.70 |
+| `tau`, block 3, **pooled** | 0.20 | 0.18 | 0.15 | 0.14 | 0.13 | 0.12 | 0.12 | 0.12 |
+| `P(tau>1)`, block 1, independent | 0.12 | 0.98 | 0.74 | 0.77 | 0.78 | 0.71 | 0.57 | 0.54 |
+| `P(tau>1)`, block 1, **pooled** | 0.85 | 0.96 | 0.96 | 0.96 | 0.97 | 0.94 | 0.91 | 0.83 |
+
+Pooling does not merely smooth. It makes the escape of the conflicted
+block *sustained and confident* (`P(tau > 1)` between 0.83 and 0.97 at
+every horizon instead of a ragged 0.12–0.98) **and** it shrinks the
+non-conflicted blocks far harder than the global prior does (0.12–0.20
+instead of 0.5–0.7). That second half is where the variance saving comes
+from, and it is why the pooled estimator can beat the global baseline
+even on the correctly specified DGP, where there is nothing to escape
+from at all.
+
 ---
 
 ## 1. Established: exact nesting
