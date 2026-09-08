@@ -148,14 +148,14 @@ if cfg.demo.run_montecarlo
         fprintf('  %-10s', 'estimator');
         for i = 1:cfg.K, fprintf('     y_%d ', i); end
         fprintf('\n');
-        for e = 1:4
+        for e = 1:numel(s.est_names)
             fprintf('  %-10s', s.est_names{e});
             fprintf('  %7.3f', s.irmse(e, :));
             fprintf('\n');
         end
         fprintf('Average coverage of %d%% intervals (over horizons, response y_%d):\n', ...
                 round(100 * cfg.ci_level), cfg.K);
-        for e = 1:4
+        for e = 1:numel(s.est_names)
             fprintf('  %-10s  %5.2f\n', s.est_names{e}, ...
                     mean(squeeze(s.coverage(e, cfg.K, :))));
         end

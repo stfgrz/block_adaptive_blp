@@ -106,9 +106,14 @@ end
 
 % --- 2. bias-variance ----------------------------------------------------
 fprintf(fid, '\n[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)\n');
+if s.early_H >= H
+    late_lbl = '(no late window)';
+else
+    late_lbl = sprintf('h = %d..%d (late)', s.early_H + 1, H);
+end
 fprintf(fid, '    %-12s %-22s %-22s %-22s\n', '', ...
-        sprintf('h = 2..%d', H), sprintf('h = 2..%d (early)', s.early_H), ...
-        sprintf('h = %d..%d (late)', s.early_H + 1, H));
+        sprintf('h = 2..%d', H), sprintf('h = 2..%d (early)', min(s.early_H, H)), ...
+        late_lbl);
 fprintf(fid, '    %-12s %7s %7s %6s %7s %7s %6s %7s %7s %6s\n', 'estimator', ...
         '|bias|', 'var', 'rmse', '|bias|', 'var', 'rmse', '|bias|', 'var', 'rmse');
 h_e = 2:min(s.early_H, H);
