@@ -78,18 +78,51 @@ Everything else — detrending, prior centre, Newey–West long-run scales,
   the serial run (`tests/test_chunk_merge.m`).
 * **The benchmark comparison is now fair.** See below.
 
+* **The early/late split, at `R = 500` with a paired test.** On the
+  sparse DGP the adaptive estimators **reliably lower RMSE at early
+  horizons** (ratio 0.968, `t = −14.3`) and **reliably raise it at late
+  ones** (1.040, `t = +8.2`). The integrated verdict is decided by how
+  many late horizons the average includes — the sign flips between
+  `H = 12` and `H = 20`. Estimators are compared on the same simulated
+  samples, so these differences are resolved despite being a few
+  percent (`montecarlo/paired_comparison.m`).
+* **What horizon pooling buys.** Pooling preserves the early correction
+  (0.968 → 0.973, the same within noise) and halves the late penalty
+  (1.040 → 1.021), taking the integrated ratio from a reliably-worse
+  1.012 (`t = 3.9`) to indistinguishable from the baseline (1.003,
+  `t = 0.67`).
+* **Localisation of sparse prior–data conflict.** Concentration
+  statistic **0.97** at the true (equation, block) cell on early
+  horizons, with the other two equations at chance, against a
+  correct-DGP baseline of **0.42**. Detection rises monotonically with
+  conflict strength and correctly reports nothing on the dense DGP.
+
 ### What is promising but not settled
 
-* Localisation of *sparse* prior–data conflict: on the sparse DGP the
-  posterior `tau` does concentrate on the block the misspecification was
-  put in, and the correct-DGP false-positive rates of the same rules are
-  reported alongside so the detection numbers can be read.
-* Early-horizon RMSE gains on the DGP the method was designed for.
+* Whether the early-horizon gain is large enough, and general enough
+  across DGPs, to be worth the machinery. The grid is exploratory
+  (`R = 40`) and one-factor-at-a-time.
+* Whether the pooled estimator's advantage over the independent one
+  holds beyond the sparse design.
 
 ### What is NOT established
 
 * **Integrated RMSE superiority.** The adaptive estimators do not beat
-  the global FMAR baseline on integrated RMSE in general.
+  the global FMAR baseline on integrated RMSE at `H = 20`: the pooled
+  one ties (1.003, `t = 0.67`), the independent one is slightly worse
+  (1.012, `t = 3.9`). Any claim of superiority would be a claim about a
+  particular reporting horizon.
+* **A τ threshold that transfers.** The false-positive baseline of the
+  concentration statistic is **not a constant**: 0.42 at `p = 2`,
+  0.62–0.68 at `p = 3`/`p = 4` where the fitted VAR *nests* the truth
+  and nothing is misspecified. A richer fit estimates its prior centre
+  less precisely, and τ faithfully reports that disagreement. The null
+  has to be simulated for the specification at hand.
+* **Adaptation under non-localised conflict.** When the same block is
+  wrong in every equation (the intermediate DGP) or the prior is wrong
+  in many places at once (`p = 1`), both adaptive estimators lose by
+  ~3% even though the diagnostic localises perfectly. Block adaptation
+  needs the conflict confined to a block *within an equation*.
 * **Broad generalisation.** The experiment grid varies one factor at a
   time around a baseline and cannot identify interactions.
 * **Empirical usefulness.** The Chapter 7 application has no completed
