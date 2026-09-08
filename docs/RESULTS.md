@@ -353,10 +353,56 @@ Per-equation × block early-horizon winner map:
 | **eq 3** | **0.97** | 0.02 | 0.00 |
 
 Equations 1 and 2 sit at chance, as they should — nothing is wrong
-there. Equation 3 is found essentially every time. The aggregate flag
-rules, by contrast, fire at 0.04–0.24 and are useless: averaging τ over
-equations before comparing blocks dilutes a signal confined to one
-equation almost to nothing.
+there. Equation 3 is found essentially every time.
+
+### Detection and localisation against the R = 500 correct-DGP null
+
+`results/mc_headline_correct.mat`, same design, nothing misspecified —
+so every number in its column is a false-positive rate.
+
+| rule | sparse (true block) | correct (false positive) | usable? |
+|---|---|---|---|
+| **concentration**, early horizons | **0.97** | **0.37** | yes — localises |
+| concentration, all horizons | 0.80 | 0.43 | yes, weaker |
+| **P(τ>1) > 0.50** on some (eq, block) | **0.74** | **0.03** | yes — detects |
+| P(τ>1) > 0.75 | 0.05 | 0.00 | too conservative |
+| τ ratio max/median > 1.25 | 0.24 | 0.30 | **no** |
+| τ ratio max/median > 1.50 | 0.04 | 0.07 | **no** |
+
+Two distinct jobs, and they need different statistics.
+
+* **"Is anything escaping?"** — the probability rule works: 74% detection
+  at a 3% false-positive rate. It is a genuine, calibrated test.
+* **"Where?"** — the concentration statistic works: the true cell is
+  ranked first in 97% of replications against a 37% null.
+* **The ratio rules on aggregated τ do not work at all** (0.04 against
+  0.07; 0.24 against 0.30). Averaging τ over equations *before*
+  comparing blocks dilutes a signal confined to one equation almost to
+  nothing. This is the rule the project previously reported, and it
+  should not be used.
+
+### On the correct DGP, pooling still wins
+
+The most surprising number in the study. On the **correctly specified**
+DGP, where there is nothing to escape from:
+
+| estimator | early (2–6) | h=2–12 | all (2–20) | late (7–20) |
+|---|---|---|---|---|
+| BLP-block | 0.965 (t −13.9) | 0.981 (t −7.0) | 1.011 (t +3.0) | 1.031 (t +6.3) |
+| BLP-pooled | **0.949** (t −11.4) | **0.951** (t −10.9) | **0.988** (t −2.2) | 1.005 (t +0.7) |
+
+The pooled estimator is **reliably better than the global FMAR baseline
+when the VAR prior is correct** (0.988, `t = −2.2`), driven by a 5%
+early-horizon gain with no late-horizon penalty. Its posterior mean τ on
+this DGP is 0.48–0.57 — far *below* 1.
+
+That is the mechanism stated plainly: with the horizons pooled, each
+block scale is informed by ~`H` times as much data, so where the VAR
+prior fits the estimator can shrink *much harder than the global prior
+does* and bank the variance. **The pooled block-adaptive estimator is
+better understood as an adaptive tightening device that also permits
+escape, than as an escape device.** That reframing matters for how the
+thesis motivates it.
 
 ---
 
