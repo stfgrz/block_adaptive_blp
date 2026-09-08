@@ -51,7 +51,20 @@ function report_montecarlo(src, fid)
 if nargin < 2 || isempty(fid), fid = 1; end
 if ischar(src)
     L = load(src);
-    if isfield(L, 's'), s = L.s; else, s = summarize_montecarlo(L.mc); end
+    % A summary saved before the h = 2..H metric and the bias-variance
+    % fields existed is STALE: recompute it from the stored replication
+    % output rather than reporting a subset of the tables (or failing on
+    % a missing field).  This is what lets the earlier R = 500 results be
+    % re-read under the preferred metric without re-running them.
+    if isfield(L, 's') && isfield(L.s, 'irmse_h2')
+        s = L.s;
+    elseif isfield(L, 'mc')
+        s = summarize_montecarlo(L.mc);
+        fprintf(1, ['[report_montecarlo] the stored summary predates the ' ...
+                    'current metrics; recomputed from mc.]\n']);
+    else
+        s = L.s;
+    end
 else
     s = src;
 end
@@ -195,7 +208,44 @@ if isfield(s, 'tau_stats') && isstruct(s.tau_stats)
         end
         fprintf(fid, '\n');
         fprintf(fid, '    argmax frequency by block (aggregate): ');
-        fprintf(fid, '%5.2f ', d.argmax_freq);  fprintf(fid, '\n');
+        fprintf(fid, '%5.2f ', d.argmax_freq);
+        fprintf(fid, '   (chance = %.2f)\n', 1 / d.G);
+        % The per-equation winner map is the object the diagnostic
+        % reading rests on.  On the correct DGP it IS the per-equation
+        % false-positive map, so print it in both cases rather than only
+        % when there is a true block to compare against.
+        fprintf(fid, '    argmax frequency by equation x block (all horizons):\n');
+        for i = 1:d.K
+            fprintf(fid, '      eq %d: ', i);
+            fprintf(fid, '%5.2f ', d.argmax_freq_by_eq(i, :));
+            fprintf(fid, '\n');
+        end
+        fprintf(fid, '    the same on early horizons (h <= %d):\n', d.early_H);
+        for i = 1:d.K
+            fprintf(fid, '      eq %d: ', i);
+            fprintf(fid, '%5.2f ', d.argmax_freq_by_eq_early(i, :));
+            fprintf(fid, '\n');
+        end
+        if isfield(d, 'max_argmax_freq')
+            fprintf(fid, ['    CONCENTRATION (max over equation x block of the win rate; ' ...
+                          'chance = %.2f):\n'], d.argmax_chance);
+            fprintf(fid, '      all horizons : %.2f  at (eq %d, block %d)\n', ...
+                    d.max_argmax_freq, d.argmax_cell(1), d.argmax_cell(2));
+            fprintf(fid, '      early (h<=%d) : %.2f  at (eq %d, block %d)', ...
+                    d.early_H, d.max_argmax_freq_early, ...
+                    d.argmax_cell_early(1), d.argmax_cell_early(2));
+            if d.false_positive
+                fprintf(fid, '   <- FALSE-POSITIVE baseline\n');
+            elseif ~isempty(d.misspec_block)
+                if d.argmax_cell_early(2) == d.misspec_block
+                    fprintf(fid, '   <- the TRUE block\n');
+                else
+                    fprintf(fid, '   <- NOT the true block (g* = %d)\n', d.misspec_block);
+                end
+            else
+                fprintf(fid, '\n');
+            end
+        end
         if ~isnan(d.detect_prob)
             fprintf(fid, '    P(block g* ranked first): aggregate %.2f;  by equation:', d.detect_prob);
             fprintf(fid, ' %.2f', d.detect_prob_by_eq);  fprintf(fid, '\n');
@@ -204,6 +254,10 @@ if isfield(s, 'tau_stats') && isstruct(s.tau_stats)
             fprintf(fid, '    mean rank of g* : %.2f (chance = %.2f, best = 1)\n', ...
                     d.mean_rank_true, d.rank_chance);
         end
+        fprintf(fid, ['    NOTE: the aggregate flag rules below average tau over ' ...
+                  'equations before\n          comparing blocks, which dilutes a ' ...
+                  'signal confined to one equation.\n          Compare their rates ' ...
+                  'against the correct-DGP run before using them.\n']);
         fprintf(fid, '    flag rate at ratio thresholds');
         fprintf(fid, ' %.2f:', d.flag_thresholds);  fprintf(fid, '  ');
         fprintf(fid, '%.2f ', d.flag_ratio);  fprintf(fid, '\n');

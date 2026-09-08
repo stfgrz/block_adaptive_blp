@@ -156,6 +156,15 @@ if isfield(s, 'tau_stats') && isstruct(s.tau_stats) && ...
             w('detect_prob_by_eq_early', sprintf('eq%d', i), d.detect_prob_by_eq_early(i));
             w('mean_rank_true_by_eq', sprintf('eq%d', i), d.mean_rank_true_by_eq(i));
         end
+        if isfield(d, 'max_argmax_freq')
+            w('max_argmax_freq', 'all_horizons', d.max_argmax_freq);
+            w('max_argmax_freq_early', 'early', d.max_argmax_freq_early);
+            w('argmax_cell', 'equation_all', d.argmax_cell(1));
+            w('argmax_cell', 'block_all', d.argmax_cell(2));
+            w('argmax_cell_early', 'equation_early', d.argmax_cell_early(1));
+            w('argmax_cell_early', 'block_early', d.argmax_cell_early(2));
+            w('argmax_chance', 'per_cell', d.argmax_chance);
+        end
         w('mean_rank_true', 'aggregate', d.mean_rank_true);
         w('rank_chance', 'aggregate', d.rank_chance);
         for k = 1:numel(d.flag_thresholds)

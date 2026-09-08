@@ -46,7 +46,9 @@ for which = {'block', 'pooled'}
             'detect_prob', 'detect_prob_by_eq', 'detect_prob_by_eq_early', ...
             'mean_rank_true', 'mean_rank_true_by_eq', 'rank_chance', ...
             'flag_ratio', 'flag_prob', 'joint_detect_ratio', ...
-            'joint_detect_prob', 'flag_rate', 'false_positive'};
+            'joint_detect_prob', 'flag_rate', 'false_positive', ...
+            'max_argmax_freq', 'max_argmax_freq_early', 'argmax_cell', ...
+            'argmax_cell_early', 'argmax_chance'};
     for k = 1:numel(need)
         assert(isfield(d, need{k}), '%s diagnostics lack .%s', which{1}, need{k});
     end
@@ -96,6 +98,25 @@ for i = 1:K
     end
 end
 fprintf('  localisation frequencies recomputed by hand from mc.tau: OK\n');
+
+% --- concentration statistic: definition and calibrated null -----------
+% This is the statistic that discriminates (the aggregate flag rules do
+% not, because they average tau over equations before comparing blocks).
+% Its null is calibrated: under the correct DGP every cell of the
+% equation x block winner map has expectation 1/G.
+assert(abs(d.argmax_chance - 1 / d.G) < 1e-12, 'argmax_chance is not 1/G');
+assert(abs(d.max_argmax_freq - max(d.argmax_freq_by_eq(:))) < 1e-12, ...
+    'max_argmax_freq is not the max of the winner map');
+assert(abs(d.max_argmax_freq_early - max(d.argmax_freq_by_eq_early(:))) < 1e-12, ...
+    'max_argmax_freq_early is not the max of the early winner map');
+assert(d.argmax_freq_by_eq(d.argmax_cell(1), d.argmax_cell(2)) == d.max_argmax_freq, ...
+    'argmax_cell does not point at the maximum');
+assert(d.argmax_freq_by_eq_early(d.argmax_cell_early(1), d.argmax_cell_early(2)) ...
+       == d.max_argmax_freq_early, 'argmax_cell_early does not point at the maximum');
+assert(d.max_argmax_freq >= d.argmax_chance - 1e-12, ...
+    'the maximum of the winner map is below chance, which is impossible');
+fprintf('  concentration statistic and its 1/G null: OK (max %.2f at eq %d, block %d)\n', ...
+        d.max_argmax_freq, d.argmax_cell(1), d.argmax_cell(2));
 
 % --- 5. the correct DGP is the false-positive setting ------------------
 dc = tau_diagnostics(mc_c, 'block');

@@ -42,6 +42,23 @@ function d = tau_diagnostics(mc, which_est, early_H)
 %       (G+1)/2 is what pure noise delivers, so this says how much
 %       better than chance the ranking is even when it is not first.
 %
+% CONCENTRATION (the statistic that actually discriminates):
+%   .max_argmax_freq / .max_argmax_freq_early
+%       max over (equation, block) of the share of replications in which
+%       that block wins in that equation, over all horizons and over the
+%       early window.  Under the correct DGP the winner is uniform over
+%       the G blocks in every equation, so this statistic has a
+%       CALIBRATED NULL: it is the maximum of K*G frequencies each with
+%       mean 1/G, and on the correct DGP it lands a little above 1/G by
+%       chance alone.  On a DGP with a genuine localised conflict it goes
+%       to 1 in the affected equation.  The aggregate flag rules below,
+%       by contrast, average tau over equations BEFORE comparing blocks,
+%       which dilutes a signal confined to one equation almost to
+%       nothing -- on this project's designs they do not discriminate at
+%       all, and that is reported rather than hidden.
+%   .argmax_cell / .argmax_cell_early
+%       which (equation, block) attains that maximum.
+%
 % Flag rules and FALSE POSITIVES (the same numbers on the correct DGP):
 %   .flag_ratio(thr)  = share of reps with max_g tau_rep / median_g
 %                       tau_rep > thr, for thr in .flag_thresholds.
@@ -174,6 +191,17 @@ else
     d.mean_rank_true = NaN;  d.mean_rank_true_by_eq = nan(K, 1);
     d.rank_chance = (G + 1) / 2;
 end
+
+% --- concentration statistic (calibrated null: 1/G per cell) -----------
+[mx, lin] = max(d.argmax_freq_by_eq(:));
+[i_mx, g_mx] = ind2sub([K, G], lin);
+d.max_argmax_freq = mx;
+d.argmax_cell = [i_mx, g_mx];
+[mxe, line_] = max(d.argmax_freq_by_eq_early(:));
+[i_me, g_me] = ind2sub([K, G], line_);
+d.max_argmax_freq_early = mxe;
+d.argmax_cell_early = [i_me, g_me];
+d.argmax_chance = 1 / G;
 
 % --- flag rules ---------------------------------------------------------
 ratio = max(tau_rep, [], 1) ./ (median(tau_rep, 1) + eps);
