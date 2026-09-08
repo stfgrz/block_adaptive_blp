@@ -192,7 +192,12 @@ if isfield(s, 'tau_stats') && isstruct(s.tau_stats)
         d = s.tau_stats.(names{n});
         fprintf(fid, '\n[4%s] TAU DIAGNOSTICS -- %s scales\n', char('a' + n - 1), d.est);
         if d.false_positive
-            fprintf(fid, '    Correctly specified DGP: every flag below is a FALSE POSITIVE.\n');
+            if isfield(d, 'fitted_p_nests_truth') && d.fitted_p_nests_truth
+                fprintf(fid, ['    The FITTED lag order nests this DGP''s truth: nothing is\n' ...
+                              '    misspecified here, so every flag below is a FALSE POSITIVE.\n']);
+            else
+                fprintf(fid, '    Correctly specified DGP: every flag below is a FALSE POSITIVE.\n');
+            end
         else
             fprintf(fid, '    Truly misspecified block: g* = %d\n', d.misspec_block);
         end

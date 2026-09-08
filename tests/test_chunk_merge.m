@@ -114,6 +114,26 @@ end
 assert(threw, 'chunks from different designs were merged');
 fprintf('  overlapping chunks and mismatched designs both refused: OK\n');
 
+% --- 3b. a compacted result cannot be re-merged --------------------------
+comp = compact_mc(ch{1});
+assert(comp.meta.tau_quantiles_compacted, 'compact_mc did not stamp the result');
+assert(size(comp.tau.block.q, 5) == 1, 'compact_mc did not collapse the quantiles');
+threw = false;
+try
+    merge_montecarlo({comp, ch{2}});
+catch err
+    threw = true;
+    assert(~isempty(strfind(err.message, 'compacted')), ...
+        'wrong error for a compacted chunk: %s', err.message);
+end
+assert(threw, 'a compacted chunk was merged instead of being refused');
+% ...but a compacted result must still summarise identically
+d_raw  = tau_diagnostics(merged, 'block');
+d_comp = tau_diagnostics(compact_mc(merged), 'block');
+assert(isequaln(d_raw.tau_q_bar, d_comp.tau_q_bar), ...
+    'compacting changed the reported tau quantiles');
+fprintf('  compacted results are refused by the merge but summarise identically: OK\n');
+
 % --- 4. incomplete merges are marked ------------------------------------
 partial = merge_montecarlo(ch(1:2));
 assert(~partial.meta.is_complete, 'an incomplete merge was marked complete');

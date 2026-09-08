@@ -136,8 +136,17 @@ exactly the closed form when `tau` is fixed.
   backslash, basic plotting). **No toolboxes required** — gamma/inverse-gamma
   draws, quantiles and normal quantiles are implemented in `utils/`.
 - The Parallel Computing Toolbox is *not* required (plain `for` loops).
-- The code also runs under GNU Octave ≥ 8 (used for automated verification
-  of this prototype), but MATLAB is the target platform.
+- The code also runs under GNU Octave ≥ 8 (every result reported here was
+  produced and verified under Octave 8.4), but MATLAB is the target
+  platform. Two Octave-specific notes: the demonstration scripts skip
+  their figures when no graphics toolkit is installed
+  (`plots/can_plot.m`), and a saved configuration struct stores its one
+  anonymous function as source text because Octave's `save` refuses
+  function handles (`utils/cfg_to_savable.m` / `cfg_from_saved.m`).
+- The parallel drivers in `scripts/` are plain shell: they launch several
+  independent Octave processes and merge the results exactly. No
+  toolbox, and the merged result is bit-identical to a serial run
+  (`tests/test_chunk_merge.m`).
 
 ## 5. How to run
 

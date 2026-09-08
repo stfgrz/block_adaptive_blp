@@ -38,7 +38,9 @@ function dgp = simulate_sparse_misspec_dgp(cfg)
 % OUTPUTS
 % -------
 % dgp : struct with the same fields as simulate_var_dgp.m, plus
-%   .misspec_block = 1 (index of the truly misspecified block).
+%   .misspec_block = 1 (index of the truly misspecified block) -- but []
+%   when cfg.p >= 3, because a fitted VAR(3) or deeper NESTS this truth
+%   and nothing is then misspecified; see the code comment below.
 %   The true IRF is ANALYTIC (the truth is itself a finite-order VAR),
 %   computed by compute_true_irf -- never by an estimator.
 %
@@ -85,11 +87,21 @@ dgp.M             = [];
 dgp.c             = base.c;
 dgp.Sigma         = base.B0 * base.B0';
 dgp.B0            = base.B0;
-if a31 == 0
-    dgp.misspec_block = [];             % nothing is misspecified
+% WHICH BLOCK IS "TRULY MISSPECIFIED" DEPENDS ON THE FITTED LAG ORDER.
+% The truth is a VAR(3).  A fitted VAR(p) with p >= 3 CONTAINS it, so the
+% prior centre is correct and there is nothing for the adaptive layer to
+% find: any escape in that case is a false positive, exactly like on the
+% correct DGP.  Reporting misspec_block = 1 there would let the
+% diagnostics score a detection rate against a block that is not wrong,
+% which is precisely the mistake the p = 3 and p = 4 grid cells exist to
+% expose.  The field is therefore [] whenever the fitted model nests the
+% truth, or when the misspecification is switched off (a31 = 0).
+if a31 == 0 || cfg.p >= 3
+    dgp.misspec_block = [];
 else
     dgp.misspec_block = 1;
 end
+dgp.fitted_p_nests_truth = (cfg.p >= 3);
 dgp.params        = struct('sparse_a31', a31);
 dgp.description   = sprintf(['True VAR(3): baseline VAR(2) plus an omitted ' ...
     'delayed effect of the shock variable on y_3 (A3(3,1) = %.2f). ' ...

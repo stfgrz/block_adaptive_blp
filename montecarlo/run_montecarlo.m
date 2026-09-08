@@ -202,6 +202,15 @@ for r = 1:Rn
         mc.misspec_block = dgp.misspec_block;
         if isfield(dgp, 'params'), mc.dgp_params = dgp.params;
         else,                      mc.dgp_params = struct(); end
+        % Whether the FITTED lag order nests the truth: with cfg.p >= 3
+        % the sparse and intermediate designs are not misspecified at
+        % all, so their tau flags are false positives like the correct
+        % DGP's.  Recorded so a summary cannot be read the wrong way.
+        if isfield(dgp, 'fitted_p_nests_truth')
+            mc.fitted_p_nests_truth = dgp.fitted_p_nests_truth;
+        else
+            mc.fitted_p_nests_truth = [];
+        end
     end
 
     if fmar
@@ -326,6 +335,7 @@ mc.seeds = seeds;
 mc.rep_index = rep_index;
 mc.meta  = mc_meta(cfg, dgp_name, d_id, est_keys, est_names, mc.dgp_params, ...
                    mc.misspec_block, seeds, toc(tstart));
+mc.meta.fitted_p_nests_truth = mc.fitted_p_nests_truth;
 mc.meta.rep_index = rep_index;
 mc.meta.R_done    = Rn;
 mc.meta.is_complete = (Rn == cfg.mc.n_rep);

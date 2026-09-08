@@ -39,6 +39,21 @@ assert(iscell(chunks) && ~isempty(chunks), ...
     'merge_montecarlo: expects a non-empty cell array of mc structs.');
 
 ref = chunks{1};
+for c = 1:numel(chunks)
+    % A compacted result (montecarlo/compact_mc.m) has had its
+    % per-replication tau quantile arrays averaged away, so it can no
+    % longer be concatenated along the replication dimension.  Refuse it
+    % with a message that says what happened, rather than failing later
+    % on an opaque size mismatch.
+    if isfield(chunks{c}, 'meta') && isstruct(chunks{c}.meta) && ...
+            isfield(chunks{c}.meta, 'tau_quantiles_compacted') && ...
+            chunks{c}.meta.tau_quantiles_compacted
+        error(['merge_montecarlo: chunk %d has been compacted ' ...
+               '(compact_mc collapsed its per-replication tau quantiles), ' ...
+               'so it cannot be merged.  Merge the raw chunk files, not a ' ...
+               'saved merged result.'], c);
+    end
+end
 key = {'dgp_name', 'est_names', 'theta_true', 'misspec_block'};
 for c = 2:numel(chunks)
     for k = 1:numel(key)

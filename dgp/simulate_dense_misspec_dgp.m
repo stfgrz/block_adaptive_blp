@@ -78,6 +78,9 @@ dgp.c             = c;
 dgp.Sigma         = B0 * B0';
 dgp.B0            = B0;
 dgp.misspec_block = [];
+% No finite VAR order nests a VARMA, so unlike the sparse and
+% intermediate designs this stays misspecified at every cfg.p.
+dgp.fitted_p_nests_truth = false;
 dgp.params        = struct('dense_scale', dense_scale);
 dgp.description   = sprintf(['True VARMA(2,1): baseline VAR(2) plus a dense ' ...
     'MA(1) term in all equations, scaled by %.2f. The fitted VAR(2) omits ' ...

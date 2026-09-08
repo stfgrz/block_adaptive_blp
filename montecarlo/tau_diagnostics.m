@@ -136,7 +136,17 @@ d.est = which_est;
 d.dgp_name = mc.dgp_name;
 d.misspec_block = mc.misspec_block;
 d.R = R;  d.K = K;  d.G = G;  d.H = H;  d.early_H = early_H;
+% A run is a FALSE-POSITIVE setting whenever nothing is misspecified --
+% which is not only the 'correct' DGP: with a fitted lag order that NESTS
+% the truth (cfg.p >= 3 on the sparse and intermediate designs) the prior
+% centre is correct too, and every flag is a false positive there as
+% well.  run_montecarlo records that as mc.fitted_p_nests_truth.
 d.false_positive = strcmp(mc.dgp_name, 'correct') || isempty(mc.misspec_block);
+if isfield(mc, 'fitted_p_nests_truth') && ~isempty(mc.fitted_p_nests_truth) ...
+        && mc.fitted_p_nests_truth
+    d.false_positive = true;
+end
+d.fitted_p_nests_truth = d.false_positive && ~strcmp(mc.dgp_name, 'correct');
 
 % --- posterior summaries averaged over replications --------------------
 d.tau_bar     = mean(tau_mean, 4);

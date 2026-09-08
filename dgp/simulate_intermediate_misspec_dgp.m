@@ -42,8 +42,9 @@ function dgp = simulate_intermediate_misspec_dgp(cfg)
 %
 % OUTPUTS
 % -------
-% dgp : same fields as the other DGP files, with
-%       .misspec_block = 1 and .params recording the design constants.
+% dgp : same fields as the other DGP files, with .params recording the
+%       design constants and .misspec_block = 1 -- but [] when cfg.p >= 3,
+%       because a fitted VAR(3) or deeper nests this truth.
 %
 % DIMENSIONS
 % ----------
@@ -81,7 +82,15 @@ dgp.M             = [];
 dgp.c             = base.c;
 dgp.Sigma         = base.B0 * base.B0';
 dgp.B0            = base.B0;
-dgp.misspec_block = 1;
+% As in the sparse design: the truth is a VAR(3), so a fitted VAR(p) with
+% p >= 3 nests it and there is no block to find.  See
+% simulate_sparse_misspec_dgp.m for the full reasoning.
+if a == 0 || cfg.p >= 3
+    dgp.misspec_block = [];
+else
+    dgp.misspec_block = 1;
+end
+dgp.fitted_p_nests_truth = (cfg.p >= 3);
 dgp.params        = struct('interm_scale', a, 'interm_load', l');
 dgp.description   = sprintf(['True VAR(3): baseline VAR(2) plus an omitted ' ...
     'delayed effect of the shock variable in EVERY equation ' ...
