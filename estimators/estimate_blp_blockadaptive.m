@@ -110,6 +110,12 @@ function blp = estimate_blp_blockadaptive(Y, cfg, var_est, lambda_mat)
 %   .tau_q                 (K x G x H x nQ) posterior quantiles of tau
 %                          at the probabilities in .tau_probs
 %   .p_tau_gt1             (K x G x H) posterior P(tau_{i,g,h} > 1)
+%   .beta_block            (K x K x H) posterior-mean coefficients on the
+%                          y(t) block, per equation and horizon, so that
+%                          theta_i(h) = b1n' * beta_block(i,:,h)'.
+%                          Exposed for the impact-vector sensitivity
+%                          analysis, which is exact because theta is
+%                          linear in b1n.
 %   .theta_cond            (K x (H+1)) IRF implied by the CONDITIONAL
 %                          posterior mean at the last draw's (tau,
 %                          sigma2).  With cfg.blp.fix_tau set this is
@@ -189,6 +195,12 @@ end
 
 theta_mean = zeros(K, H + 1);  theta_med = zeros(K, H + 1);
 theta_rb = zeros(K, H + 1);  theta_dm = zeros(K, H + 1);
+% Posterior-mean coefficients ON THE y(t) BLOCK, per equation and
+% horizon: theta_i(h) = b1n' * beta_block(i,:,h)'.  Returned so that the
+% contribution of impact-vector uncertainty can be evaluated EXACTLY,
+% without re-estimating anything -- see
+% montecarlo/run_sensitivity_approximations.m, part B1.
+beta_block = zeros(K, K, H);
 point_mode = point_estimate_mode(cfg);
 lo = nan(K, H + 1);  hi = nan(K, H + 1);
 lo_post = nan(K, H + 1);  hi_post = nan(K, H + 1);
@@ -336,6 +348,7 @@ for h = 1:H
         tau_q(i, :, h, :)  = reshape(out.tau_q, [1, G, 1, nQ]);
         p_tau_gt1(i, :, h) = out.p_tau_gt1';
         theta_cond(i, h + 1) = out.beta_cond_mean(2:1 + K)' * b1n;
+        beta_block(i, :, h)  = out.beta_rb_mean(2:1 + K)';
         lag1(i, h) = out.diag.lag1_acorr_beta;
         ess_beta(i, h) = out.diag.ess_beta;
         rb_series      = out.beta_cond_draws(:, 2:1 + K) * b1n;
@@ -356,6 +369,7 @@ blp.theta_rb    = theta_rb;
 blp.theta_draw_mean = theta_dm;
 blp.point_estimate  = point_mode;
 blp.sigma2_mode     = sigma2_mode;
+blp.beta_block      = beta_block;
 blp.lo          = lo;
 blp.hi          = hi;
 blp.lo_post     = lo_post;

@@ -39,6 +39,7 @@ test_pooled_estimator();    % the horizon-pooling prior and its two limits
 test_mc_metrics();          % metric definitions, both IRMSE conventions,
                             % reproducibility record and csv export
 test_tau_diagnostics();     % localisation / false-positive accounting
+test_chunk_merge();         % parallel chunking is exact; cfg round trip
 test_empirical_pipeline();  % Ch. 7 package on a synthetic fixture
 
 fprintf('==============================================\n');

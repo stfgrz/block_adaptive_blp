@@ -125,22 +125,26 @@ for r = 1:nD
     dtau = abs(log(altA.tau_mean) - log(base.tau_mean));
     dA_tau(r) = max(dtau(:));
 
-    % ---- B1. impact-vector uncertainty (exact, no re-estimation) -----
-    % theta is linear in b1n, so re-evaluating the SAME coefficient
-    % posterior mean at each NIW draw of b1n isolates that channel.
+    % ---- B1. impact-vector uncertainty (EXACT, no re-estimation) -----
+    % theta_i(h) = b1n' * beta_block(i,:,h)' is LINEAR in b1n, so
+    % re-evaluating the SAME coefficient posterior mean at each NIW draw
+    % of b1n isolates that channel with no approximation whatsoever.
     nd = size(bvar.b1n_draws, 2);
     th_b1 = zeros(K, H, nd);
     for j = 1:nd
         b1d = bvar.b1n_draws(:, j);
-        % beta posterior mean per (i,h) is recoverable from theta and the
-        % base b1n only up to the coefficient block; re-derive it from
-        % the estimator's own conditional mean instead.
-        th_b1(:, :, j) = rescale_theta(base, b1d, bvar.b1n);
+        for h = 1:H
+            th_b1(:, h, j) = base.beta_block(:, :, h) * b1d;
+        end
     end
-    sd_b1n(r) = mean(mean(std(th_b1, 0, 3)));
+    sd_b1n(r) = mean(mean(std(th_b1(:, 2:end, :), 0, 3)));
     half_band(r) = mean(mean((base.hi(:, 3:end) - base.lo(:, 3:end)) / 2));
 
     % ---- B2. prior-centre uncertainty --------------------------------
+    % Only the prior CENTRE and the impact vector are varied here; the
+    % deterministic trend is left at the posterior-mean B, because the
+    % draws expose the companion matrix but not the constant, and
+    % detrending uncertainty is a separate (smaller) channel.
     nd2 = min(opts.n_draws, size(bvar.F_draws, 3));
     th_c = zeros(K, H + 1, nd2);
     for j = 1:nd2
@@ -148,8 +152,8 @@ for r = 1:nD
         bd.F   = bvar.F_draws(:, :, j);
         bd.b1n = bvar.b1n_draws(:, j);
         rng(opts.seed + 2000 + 37 * r + j, 'twister');
-        e = estimate_blp_blockadaptive(Y, bd, cfg_short(cfg), bd, blp_f.lambda);
-        th_c(:, :, j) = e;
+        e = estimate_blp_blockadaptive(Y, cfg, bd, blp_f.lambda);
+        th_c(:, :, j) = e.theta_mean;
     end
     sd_centre(r) = mean(mean(std(th_c(:, 3:end, :), 0, 3)));
 
@@ -202,26 +206,6 @@ print_and_write(S, opts);
 end
 
 % =====================================================================
-function th = rescale_theta(base, b1_new, b1_old)
-% theta_i(h) = b1n' * beta_{i,h}(2:1+K).  The estimator reports theta at
-% b1_old; the coefficient block itself is not returned, so the exact
-% linear rescaling is only available in the direction of the shock.  Use
-% the ratio of the projections of the PRIOR CENTRE, which is the same
-% linear map, to carry theta from b1_old to b1_new.
-K = size(base.theta_mean, 1);
-H = size(base.theta_mean, 2) - 1;
-th = zeros(K, H);
-num = base.prior_theta(:, 2:end);        % centre at b1_old
-scale = (b1_new' * b1_new) / (b1_old' * b1_old);
-for h = 1:H
-    th(:, h) = base.theta_mean(:, h + 1) - num(:, h) + num(:, h) * scale;
-end
-end
-
-function c = cfg_short(cfg)
-c = cfg;
-end
-
 function m = nanmean_(v)
 v = v(~isnan(v));
 if isempty(v), m = NaN; else, m = mean(v); end
