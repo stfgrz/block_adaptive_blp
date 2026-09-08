@@ -32,8 +32,13 @@ function L = safe_chol_lower(S)
 % Any jitter beyond the first attempt is reported with a warning so
 % numerical trouble is visible, never hidden.
 
-assert(size(S,1) == size(S,2), 'safe_chol_lower: S must be square.');
-assert(all(isfinite(S(:))), 'safe_chol_lower: S has non-finite entries.');
+% Plain conditionals rather than assert(): see the note in draw_gamma.m.
+if size(S, 1) ~= size(S, 2)
+    error('safe_chol_lower: S must be square.');
+end
+if ~all(isfinite(S(:)))
+    error('safe_chol_lower: S has non-finite entries.');
+end
 
 S = (S + S') / 2;                       % remove floating-point asymmetry
 [L, flag] = chol(S, 'lower');

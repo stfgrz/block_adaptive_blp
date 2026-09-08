@@ -10,3 +10,15 @@ empirical/data/ea_dataset*.mat
 empirical/data/raw/*.csv
 !empirical/data/raw/ea_empd_events.csv
 empirical/data/raw/rejected/
+
+# Monte Carlo chunk files and worker logs (intermediate; the merged
+# results/mc_*.mat and the csv exports are what gets committed)
+results/chunks/
+results/grid/logs/
+empirical/data/SYNTHETIC_*
+
+# Octave leaves this behind on abnormal exit
+octave-workspace
+
+# smoke-preset outputs are throwaway
+results/mc_smoke_*

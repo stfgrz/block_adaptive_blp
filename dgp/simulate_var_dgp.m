@@ -77,6 +77,7 @@ dgp.c             = c;
 dgp.Sigma         = Sigma;
 dgp.B0            = B0;
 dgp.misspec_block = [];
+dgp.params        = struct();       % no design constants to vary
 dgp.description   = 'Correctly specified stable VAR(2).';
 
 [dgp.Y, dgp.eta] = simulate_linear_dgp(dgp, cfg);

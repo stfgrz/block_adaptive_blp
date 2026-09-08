@@ -68,6 +68,14 @@ function bvar = estimate_bvar_niw(Y, cfg)
 %   .B, .c, .A, .Sigma, .F, .max_eig, .is_stable, .Psi, .b1n,
 %   .theta, .theta_lo, .theta_hi, .N, .m      (same meanings), plus
 %   .lambda      selected tightness
+%   .b1n_draws   (K x n_niw_draws) impact vector implied by each NIW
+%                posterior draw, and .F_draws the matching companion
+%                matrices.  The h >= 2 estimators hold b1n and the prior
+%                centre FIXED at the posterior mean (as FMAR do); these
+%                draws are what
+%                montecarlo/run_sensitivity_approximations.m uses to
+%                price that approximation without changing the
+%                estimators themselves.
 %   .psi         (K x 1) AR(1) prior scales
 %   .Omega_diag  (m x 1) prior coefficient variances at lambda
 %   .S_end, .a_end, .Omega_end   NIW posterior parameters
@@ -194,6 +202,8 @@ end
 n_draw = cfg.fmar.n_niw_draws;
 Lo = safe_chol_lower((Omega_end + Omega_end') / 2);   % row covariance factor
 theta_sims = zeros(K, H + 1, n_draw);
+b1n_draws  = zeros(K, n_draw);      % impact vectors implied by the draws
+F_draws    = zeros(K * p, K * p, n_draw);
 n_unstable = 0;
 for isim = 1:n_draw
     Sig_d = draw_iw(S_end, a_end);
@@ -209,6 +219,8 @@ for isim = 1:n_draw
     Sig_rd = cov(E_d);
     B0d = safe_chol_lower((Sig_rd + Sig_rd') / 2);
     b1d = B0d(:, s) / B0d(s, s);
+    b1n_draws(:, isim) = b1d;
+    F_draws(:, :, isim) = Fd;
     Fh = eye(K * p);
     for h = 0:H
         theta_sims(:, h + 1, isim) = (J * Fh * J') * b1d;
@@ -235,6 +247,8 @@ bvar.lambda = lambda;
 bvar.psi = psi;
 bvar.Omega_diag = omega;
 bvar.S_end = S_end;  bvar.a_end = a_end;  bvar.Omega_end = Omega_end;
+bvar.b1n_draws = b1n_draws;     % (K x n_draw) impact vector per NIW draw
+bvar.F_draws   = F_draws;       % (Kp x Kp x n_draw) companion per NIW draw
 bvar.diag.share_unstable_draws = n_unstable / n_draw;
 
 assert(all(isfinite(theta(:))), 'estimate_bvar_niw: non-finite IRFs.');

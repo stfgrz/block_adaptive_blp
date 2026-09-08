@@ -48,7 +48,11 @@ function dgp = simulate_sparse_misspec_dgp(cfg)
 %
 % NOTES
 % -----
-% a31 = -0.30 keeps max |companion eigenvalue| well below 0.95 (about
+% a31 is read from cfg.dgp.sparse_a31 (default -0.30) so the Monte Carlo
+% grid can vary the MISSPECIFICATION STRENGTH; a31 = 0 switches the
+% misspecification off entirely and the DGP then coincides with
+% simulate_var_dgp (dgp.misspec_block is set to [] in that case).
+% The default a31 = -0.30 keeps max |companion eigenvalue| below 0.95 (about
 % 0.82) while producing a population VAR(2)-prior bias for the y_3
 % response of roughly 0.2 -- large relative to single-sample estimation
 % noise at T = 200 (roughly 0.05-0.10), so the misspecification is
@@ -62,7 +66,7 @@ assert(cfg.K == 3, ...
 
 base = base_var2_parameters();          % same A1, A2, c, B0 as DGP 1
 
-a31 = -0.30;                            % the single misspecified entry
+a31 = dgp_param(cfg, 'sparse_a31', -0.30);   % the single misspecified entry
 A3  = zeros(3);
 A3(3, 1) = a31;
 % --- alternative weak-signal design (kept for comparison): ----------
@@ -81,7 +85,12 @@ dgp.M             = [];
 dgp.c             = base.c;
 dgp.Sigma         = base.B0 * base.B0';
 dgp.B0            = base.B0;
-dgp.misspec_block = 1;
+if a31 == 0
+    dgp.misspec_block = [];             % nothing is misspecified
+else
+    dgp.misspec_block = 1;
+end
+dgp.params        = struct('sparse_a31', a31);
 dgp.description   = sprintf(['True VAR(3): baseline VAR(2) plus an omitted ' ...
     'delayed effect of the shock variable on y_3 (A3(3,1) = %.2f). ' ...
     'Fitted VAR(2) prior is misspecified mainly in the "lags of ' ...
@@ -92,6 +101,17 @@ dgp.theta_true   = compute_true_irf(dgp, cfg, 'analytic');
 end
 
 % =====================================================================
+function v = dgp_param(cfg, name, default)
+% Read cfg.dgp.<name> if present, otherwise the documented default, so
+% configuration structs written before cfg.dgp existed still reproduce
+% the original design exactly.
+v = default;
+if isfield(cfg, 'dgp') && isstruct(cfg.dgp) && isfield(cfg.dgp, name) ...
+        && ~isempty(cfg.dgp.(name))
+    v = cfg.dgp.(name);
+end
+end
+
 function base = base_var2_parameters()
 % Baseline VAR(2) parameters, identical to those in simulate_var_dgp.m.
 % Duplicated deliberately in a single local function per DGP file so

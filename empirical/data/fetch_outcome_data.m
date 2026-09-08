@@ -6,7 +6,11 @@ function ok = fetch_outcome_data(opts)
 % ----------------------------------------------------------------------
 %   ip_ea.csv      euro-area industrial production, volume index,
 %                  industry excl. construction (B-D), seasonally and
-%                  calendar adjusted.        [Eurostat sts_inpr_m]
+%                  calendar adjusted, EA20, 2021 = 100.  EXACT series:
+%                  Eurostat sts_inpr_m, key M.PRD.B-D.SCA.I21.EA20.
+%                  This is the ONE industrial-production series the
+%                  chapter uses; see the spec block below for why EA19
+%                  is not an automatic fallback.
 %   hicp_ea.csv    euro-area HICP all-items index (2015 = 100).
 %                                             [Eurostat prc_hicp_midx]
 %   rate1y_ea.csv  1-year nominal rate LEVEL, monthly average.  Baseline:
@@ -95,29 +99,55 @@ need1 = 12 * opts.need_y1m1(1) + opts.need_y1m1(2);
 eust = 'https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/';
 ecb  = 'https://data-api.ecb.europa.eu/service/data/';
 
-spec = struct('file', {}, 'urls', {}, 'manual', {});
+spec = struct('file', {}, 'urls', {}, 'manual', {}, 'series', {});
 
-% NOTE the indicator code is PRD ("Production (volume)"), not PROD, and
-% the current index base is I21 (2021 = 100).  Dimension order is
-% freq.indic_bt.nace_r2.s_adj.unit.geo.  EA20 carries the series from
-% 1991-01; EA19 stops in 2024-08, which still covers the 2000-2019 sample.
+% ---------------------------------------------------------------------
+% INDUSTRIAL PRODUCTION -- ONE unambiguous series, fixed by name
+% ---------------------------------------------------------------------
+% Eurostat sts_inpr_m, dimension order freq.indic_bt.nace_r2.s_adj.unit.geo:
+%
+%     M . PRD . B-D . SCA . I21 . EA20
+%       |     |     |     |     |
+%       |     |     |     |     +-- geo   EA20 = euro area, 20 fixed members
+%       |     |     |     +-------- unit  I21  = index, 2021 = 100
+%       |     |     +-------------- s_adj SCA  = seasonally AND calendar adj.
+%       |     +-------------------- nace  B-D  = industry excl. construction
+%       +-------------------------- indic PRD  = production, volume
+%
+% The indicator code is PRD ("Production (volume)"), not PROD.  EA20
+% carries the series back to 1991-01, so it covers the whole sample.
+%
+% ONE SERIES, NOT A MENU.  An earlier version of this file also offered
+% EA19 as a download fallback.  That is a DIFFERENT GEOGRAPHY (19 vs 20
+% member states), so a silent fallback would have changed the object
+% being estimated without changing a single line of output -- exactly the
+% kind of ambiguity that makes an empirical result unreproducible.  EA19
+% is therefore no longer accepted automatically: if EA20 is unavailable,
+% the manual route below tells you to record the substitution explicitly.
+% The ONLY automatic fallback kept is the 2015 = 100 base of the SAME
+% EA20 series: the variable enters the system as 100*log(index), so a
+% change of base year shifts it by a constant and is absorbed by the LP
+% intercept and by the BVAR deterministic component.
 spec(1).file = 'ip_ea.csv';
+spec(1).series = 'Eurostat sts_inpr_m  M.PRD.B-D.SCA.I21.EA20 (base fallback I15.EA20)';
 spec(1).urls = { ...
   [eust 'sts_inpr_m/M.PRD.B-D.SCA.I21.EA20/?format=SDMX-CSV&startPeriod=1999-01'], ...
-  [eust 'sts_inpr_m/M.PRD.B-D.SCA.I21.EA19/?format=SDMX-CSV&startPeriod=1999-01'], ...
-  [eust 'sts_inpr_m/M.PRD.B-D.SCA.I15.EA20/?format=SDMX-CSV&startPeriod=1999-01'], ...
-  [eust 'sts_inpr_m/M.PRD.B-D.SCA.I15.EA19/?format=SDMX-CSV&startPeriod=1999-01']};
+  [eust 'sts_inpr_m/M.PRD.B-D.SCA.I15.EA20/?format=SDMX-CSV&startPeriod=1999-01']};
 spec(1).manual = ['Eurostat Data Browser (ec.europa.eu/eurostat/databrowser), ' ...
-  'dataset sts_inpr_m "Production in industry, monthly".  Filter: NACE ' ...
-  'B-D (industry except construction), s_adj = SCA (seasonally and ' ...
-  'calendar adjusted), unit = I21 (2021=100; the base year does not ' ...
-  'matter, the series enters as 100*log), geo = EA20 (or EA19), period ' ...
-  'from 1999-01.  Download > SDMX-CSV.  IF YOU LEAVE THE geo OR nace ' ...
-  'FILTER OPEN you get every country and activity in one file, which is ' ...
-  'not a series; rather than re-downloading, reduce it in place with:  ' ...
+  'dataset sts_inpr_m "Production in industry, monthly".  Filter EXACTLY: ' ...
+  'indic_bt = PRD (production, volume), NACE = B-D (industry except ' ...
+  'construction), s_adj = SCA (seasonally and calendar adjusted), unit = ' ...
+  'I21 (2021 = 100; I15 is an acceptable substitute, the series enters as ' ...
+  '100*log so the base year is absorbed), geo = EA20, period from 1999-01. ' ...
+  'Download > SDMX-CSV.  Do NOT substitute EA19 or a national series ' ...
+  'without saying so in the thesis: that changes the geography, not just ' ...
+  'the units.  IF YOU LEAVE THE geo OR nace FILTER OPEN you get every ' ...
+  'country and activity in one file, which is not a series; rather than ' ...
+  're-downloading, reduce it in place with:  ' ...
   'ea_extract_series(PATH, PATH, struct(''geo'',''EA20'',''nace_r2'',''B-D''))'];
 
 spec(2).file = 'hicp_ea.csv';
+spec(2).series = 'Eurostat prc_hicp_midx  M.I15.CP00.EA (changing composition)';
 spec(2).urls = { ...
   [eust 'prc_hicp_midx/M.I15.CP00.EA/?format=SDMX-CSV&startPeriod=1999-01'], ...
   [eust 'prc_hicp_midx/M.I15.CP00.EA19/?format=SDMX-CSV&startPeriod=1999-01'], ...
@@ -129,6 +159,7 @@ spec(2).manual = ['Eurostat Data Browser, dataset prc_hicp_midx "HICP ' ...
   'CH7_DESIGN Sec. 2 for the seasonality discussion -- p = 12 absorbs it.)'];
 
 spec(3).file = 'rate1y_ea.csv';
+spec(3).series = 'ECB FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA (12-month Euribor, monthly average)';
 spec(3).urls = { ...
   [ecb 'FM/M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA?format=csvdata&startPeriod=1999-01'], ...
   [ecb 'FM/M.U2.EUR.RT.MM.EURIBOR1YD.HSTA?format=csvdata&startPeriod=1999-01']};
@@ -142,6 +173,7 @@ spec(3).manual = ['ECB Data Portal (data.ecb.europa.eu), search "Euribor ' ...
   '(it removes the bank credit premium discussed in CH7_DESIGN Sec. 2).'];
 
 spec(4).file = 'stoxx50_ea.csv';
+spec(4).series = 'ECB FM.M.U2.EUR.DS.EI.DJES50I.HSTA (EURO STOXX 50 price index, monthly)';
 spec(4).urls = { ...
   [ecb 'FM/M.U2.EUR.DS.EI.DJES50I.HSTA?format=csvdata&startPeriod=1999-01']};
 spec(4).manual = ['ECB Data Portal, search "Dow Jones Euro Stoxx 50" and ' ...
@@ -160,6 +192,7 @@ for i = 1:numel(spec)
             fprintf('fetch_outcome_data: %-14s OK, %d obs %s..%s (roughness %.2f)\n', ...
                     spec(i).file, chk.n_obs, ym_str(chk.ym0), ym_str(chk.ym1), ...
                     chk.roughness);
+            write_provenance(fpath, spec(i), '(pre-existing local file; source not recorded by this run)');
             continue
         end
         rej = fullfile(opts.raw_dir, 'rejected');
@@ -192,6 +225,7 @@ for i = 1:numel(spec)
             end
             fprintf('fetch_outcome_data: downloaded %-14s %d obs %s..%s\n', ...
                     spec(i).file, chk.n_obs, ym_str(chk.ym0), ym_str(chk.ym1));
+            write_provenance(fpath, spec(i), spec(i).urls{u});
             got = true;
             break
         catch
@@ -242,6 +276,23 @@ if opts.skip_plausibility
     chk.ok = isempty(keep);
 end
 good = chk.ok;
+end
+
+function write_provenance(fpath, sp, url)
+% Record, next to every accepted raw file, WHICH series it is and where
+% it came from.  assemble_dataset copies these lines into the dataset's
+% metadata, so a stored result always names its inputs.
+try
+    fid = fopen([fpath '.source.txt'], 'w');
+    if fid <= 0, return; end
+    fprintf(fid, 'file        = %s\n', sp.file);
+    fprintf(fid, 'series      = %s\n', sp.series);
+    fprintf(fid, 'source_url  = %s\n', url);
+    fprintf(fid, 'recorded_at = %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));  %#ok<TNOW1,DATST>
+    fclose(fid);
+catch
+    % Provenance is a convenience, never a reason to fail a fetch.
+end
 end
 
 function s = ym_str(v)

@@ -37,8 +37,20 @@ function x = draw_gamma(shape, scale)
 % -----
 % Fully driven by rand/randn, hence reproducible under rng(seed).
 
-assert(isscalar(shape) && shape > 0, 'draw_gamma: shape must be > 0.');
-assert(isscalar(scale) && scale > 0, 'draw_gamma: scale must be > 0.');
+% NOTE ON THE ARGUMENT CHECKS.  These were written with assert(), which
+% in Octave is an m-file doing a great deal of work on every call: it
+% cost about 100 microseconds per draw, and this function is called
+% roughly 400,000 times per block-adaptive estimator run, so the checks
+% alone accounted for most of the Monte Carlo's runtime.  The plain
+% conditional below is the same check with the same error, at a
+% negligible cost.  Nothing about the algorithm or the consumption of
+% the random stream changes.
+if ~(isscalar(shape) && shape > 0)
+    error('draw_gamma: shape must be a positive scalar.');
+end
+if ~(isscalar(scale) && scale > 0)
+    error('draw_gamma: scale must be a positive scalar.');
+end
 
 if shape < 1
     % Boost: draw Gamma(shape+1,1), multiply by U^(1/shape).
