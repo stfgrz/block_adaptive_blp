@@ -1,0 +1,873 @@
+BLOCK-ADAPTIVE BLP -- FULL RESULTS REPORT
+generated 2026-09-08 15:46:46 by montecarlo/write_results_report.m
+Read docs/RESULTS.md for how to interpret these tables, and
+docs/APPROXIMATIONS.md for what the remaining simplifications cost.
+
+
+########################################################################
+# mc_final_sparse.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = sparse
+ True VAR(3): baseline VAR(2) plus an omitted delayed effect of the shock variable on y_3 (A3(3,1) = -0.30). Fitted VAR(2) prior is misspecified mainly in the "lags of variable 1" block of the y_3 equation.
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 3.2% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.100|0.101  0.095|0.096  0.086|0.086  0.094|0.094    1.439
+    VAR          0.046|0.045  0.045|0.044  0.068|0.067  0.053|0.052    0.788
+    BLP-glob     0.067|0.067  0.065|0.065  0.067|0.066  0.066|0.066    1.000
+    BLP-block    0.067|0.067  0.065|0.065  0.066|0.065  0.066|0.066    0.997
+    (ratio = preferred IRMSE relative to BLP-glob; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0158  0.0087  0.094  0.0234  0.0074  0.089  0.0131  0.0091  0.096
+    VAR           0.0296  0.0019  0.052  0.0522  0.0041  0.088  0.0215  0.0011  0.039
+    BLP-glob      0.0177  0.0038  0.066  0.0337  0.0049  0.080  0.0120  0.0035  0.061
+    BLP-block     0.0166  0.0039  0.066  0.0297  0.0050  0.078  0.0119  0.0035  0.061
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+    Per-response detail, h = 2..20:
+    estimator      y_1 |bias| var     y_2 |bias| var     y_3 |bias| var  
+    LP            0.0240 0.0097   0.0141 0.0090   0.0093 0.0073 
+    VAR           0.0146 0.0022   0.0191 0.0019   0.0550 0.0015 
+    BLP-glob      0.0175 0.0041   0.0113 0.0039   0.0245 0.0035 
+    BLP-block     0.0175 0.0042   0.0113 0.0040   0.0210 0.0036 
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.847      0.279              -            -
+    VAR               0.753      0.142              -            -
+    BLP-glob          0.708      0.134              -            -
+    BLP-block         0.754      0.152              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Truly misspecified block: g* = 1
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.26   block 2:  1.18   block 3:  1.14   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.52  0.29  0.19    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.32  0.40  0.27 
+      eq 2:  0.35  0.35  0.30 
+      eq 3:  0.75  0.16  0.09 
+    the same on early horizons (h <= 6):
+      eq 1:  0.29  0.39  0.32 
+      eq 2:  0.38  0.31  0.31 
+      eq 3:  0.95  0.04  0.01 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.75  at (eq 3, block 1)
+      early (h<=6) : 0.95  at (eq 3, block 1)   <- the TRUE block
+    P(block g* ranked first): aggregate 0.52;  by equation: 0.32 0.35 0.75
+    early horizons (h <= 6), by equation:       0.29 0.38 0.95
+    mean rank of g* : 1.60 (chance = 2.00, best = 1)
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.14 0.02 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.424
+
+
+
+########################################################################
+# mc_final_correct.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = correct
+ Correctly specified stable VAR(2).
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 3.2% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.106|0.107  0.098|0.099  0.087|0.088  0.097|0.098    1.480
+    VAR          0.049|0.047  0.045|0.043  0.039|0.038  0.044|0.043    0.646
+    BLP-glob     0.073|0.073  0.067|0.067  0.060|0.059  0.067|0.066    1.000
+    BLP-block    0.073|0.073  0.068|0.067  0.060|0.059  0.067|0.067    1.005
+    (ratio = preferred IRMSE relative to BLP-glob; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0176  0.0093  0.098  0.0147  0.0078  0.089  0.0187  0.0099  0.101
+    VAR           0.0119  0.0020  0.043  0.0169  0.0042  0.067  0.0101  0.0012  0.034
+    BLP-glob      0.0182  0.0041  0.066  0.0177  0.0045  0.070  0.0184  0.0039  0.065
+    BLP-block     0.0183  0.0041  0.067  0.0175  0.0045  0.070  0.0186  0.0039  0.065
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.836      0.280              -            -
+    VAR               0.891      0.152              -            -
+    BLP-glob          0.678      0.129              -            -
+    BLP-block         0.718      0.145              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Correctly specified DGP: every flag below is a FALSE POSITIVE.
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.21   block 2:  1.19   block 3:  1.18   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.39  0.32  0.29    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.33  0.37  0.30 
+      eq 2:  0.39  0.31  0.30 
+      eq 3:  0.39  0.31  0.30 
+    the same on early horizons (h <= 6):
+      eq 1:  0.34  0.35  0.31 
+      eq 2:  0.33  0.33  0.34 
+      eq 3:  0.34  0.33  0.33 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.39  at (eq 2, block 1)
+      early (h<=6) : 0.35  at (eq 1, block 2)   <- FALSE-POSITIVE baseline
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.19 0.05 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.544
+
+
+
+########################################################################
+# mc_final_dense.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = dense
+ True VARMA(2,1): baseline VAR(2) plus a dense MA(1) term in all equations. The fitted VAR(2) omits dynamics in every block (dense misspecification).
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 3.2% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.150|0.153  0.140|0.142  0.125|0.127  0.138|0.141    1.345
+    VAR          0.094|0.094  0.088|0.087  0.078|0.078  0.087|0.086    0.827
+    BLP-glob     0.113|0.114  0.106|0.106  0.093|0.094  0.104|0.105    1.000
+    BLP-block    0.112|0.113  0.105|0.105  0.092|0.093  0.103|0.104    0.991
+    (ratio = preferred IRMSE relative to BLP-glob; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0295  0.0190  0.141  0.0329  0.0162  0.131  0.0283  0.0200  0.144
+    VAR           0.0453  0.0062  0.086  0.0344  0.0125  0.118  0.0492  0.0040  0.075
+    BLP-glob      0.0391  0.0095  0.105  0.0296  0.0126  0.117  0.0425  0.0084  0.100
+    BLP-block     0.0384  0.0094  0.104  0.0285  0.0124  0.116  0.0419  0.0083  0.099
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.840      0.409              -            -
+    VAR               0.766      0.237              -            -
+    BLP-glob          0.505      0.162              -            -
+    BLP-block         0.579      0.185              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Correctly specified DGP: every flag below is a FALSE POSITIVE.
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.23   block 2:  1.23   block 3:  1.21   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.36  0.33  0.31    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.31  0.35  0.33 
+      eq 2:  0.36  0.30  0.34 
+      eq 3:  0.38  0.35  0.27 
+    the same on early horizons (h <= 6):
+      eq 1:  0.32  0.38  0.29 
+      eq 2:  0.37  0.31  0.32 
+      eq 3:  0.36  0.35  0.29 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.38  at (eq 3, block 1)
+      early (h<=6) : 0.38  at (eq 1, block 2)   <- FALSE-POSITIVE baseline
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.22 0.04 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.368
+
+
+
+########################################################################
+# mc_correct.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = correct
+ Correctly specified stable VAR(2).
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 7.1% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.112|0.114  0.102|0.104  0.087|0.088  0.100|0.102    1.464
+    VAR          0.047|0.046  0.044|0.043  0.038|0.037  0.043|0.042    0.598
+    BLP-glob     0.079|0.080  0.070|0.069  0.060|0.060  0.070|0.070    1.000
+    BLP-block    0.080|0.080  0.071|0.070  0.060|0.060  0.070|0.070    1.007
+    (ratio = preferred IRMSE relative to BLP-glob; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0218  0.0100  0.102  0.0135  0.0080  0.090  0.0247  0.0107  0.106
+    VAR           0.0117  0.0019  0.042  0.0157  0.0041  0.066  0.0102  0.0011  0.033
+    BLP-glob      0.0215  0.0044  0.070  0.0173  0.0047  0.071  0.0230  0.0043  0.069
+    BLP-block     0.0215  0.0045  0.070  0.0168  0.0047  0.071  0.0232  0.0044  0.070
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.821      0.280              -            -
+    VAR               0.900      0.153              -            -
+    BLP-glob          0.679      0.132              -            -
+    BLP-block         0.720      0.149              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Correctly specified DGP: every flag below is a FALSE POSITIVE.
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.23   block 2:  1.16   block 3:  1.19   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.44  0.28  0.28    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.37  0.32  0.31 
+      eq 2:  0.39  0.29  0.32 
+      eq 3:  0.45  0.19  0.36 
+    the same on early horizons (h <= 6):
+      eq 1:  0.44  0.26  0.30 
+      eq 2:  0.36  0.36  0.28 
+      eq 3:  0.38  0.31  0.31 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.45  at (eq 3, block 1)
+      early (h<=6) : 0.44  at (eq 1, block 1)   <- FALSE-POSITIVE baseline
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.26 0.06 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.370
+
+
+
+########################################################################
+# mc_dense.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = dense
+ True VARMA(2,1): baseline VAR(2) plus a dense MA(1) term in all equations. The fitted VAR(2) omits dynamics in every block (dense misspecification).
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 7.1% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.141|0.144  0.132|0.134  0.119|0.120  0.131|0.133    1.383
+    VAR          0.087|0.087  0.081|0.080  0.072|0.072  0.080|0.080    0.829
+    BLP-glob     0.102|0.103  0.099|0.099  0.085|0.085  0.096|0.096    1.000
+    BLP-block    0.102|0.103  0.098|0.097  0.084|0.084  0.095|0.095    0.989
+    (ratio = preferred IRMSE relative to BLP-glob; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0334  0.0164  0.133  0.0403  0.0141  0.126  0.0310  0.0173  0.135
+    VAR           0.0427  0.0051  0.080  0.0313  0.0098  0.105  0.0468  0.0034  0.071
+    BLP-glob      0.0393  0.0076  0.096  0.0246  0.0099  0.103  0.0445  0.0068  0.093
+    BLP-block     0.0382  0.0075  0.095  0.0239  0.0098  0.102  0.0434  0.0067  0.092
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.857      0.408              -            -
+    VAR               0.822      0.237              -            -
+    BLP-glob          0.532      0.162              -            -
+    BLP-block         0.612      0.185              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Correctly specified DGP: every flag below is a FALSE POSITIVE.
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.22   block 2:  1.25   block 3:  1.21   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.31  0.38  0.31    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.28  0.42  0.30 
+      eq 2:  0.31  0.38  0.31 
+      eq 3:  0.32  0.44  0.24 
+    the same on early horizons (h <= 6):
+      eq 1:  0.27  0.43  0.30 
+      eq 2:  0.36  0.40  0.24 
+      eq 3:  0.36  0.43  0.21 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.44  at (eq 3, block 2)
+      early (h<=6) : 0.43  at (eq 1, block 2)   <- FALSE-POSITIVE baseline
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.17 0.03 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.340
+
+
+
+########################################################################
+# mc_fmar_correct.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = correct
+ Correctly specified stable VAR(2).
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 28.9% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.092|0.092  0.104|0.106  0.096|0.097  0.097|0.099    1.604
+    BVAR         0.033|0.031  0.036|0.035  0.038|0.036  0.036|0.034    0.556
+    BLP-FMAR     0.058|0.057  0.067|0.067  0.060|0.059  0.062|0.061    1.000
+    BLP-block    0.060|0.059  0.068|0.069  0.062|0.062  0.063|0.063    1.027
+    (ratio = preferred IRMSE relative to BLP-FMAR; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0393  0.0080  0.099  0.0198  0.0045  0.071  0.0463  0.0092  0.108
+    BVAR          0.0175  0.0010  0.034  0.0259  0.0019  0.052  0.0145  0.0007  0.028
+    BLP-FMAR      0.0270  0.0031  0.061  0.0224  0.0031  0.060  0.0286  0.0031  0.062
+    BLP-block     0.0296  0.0031  0.063  0.0230  0.0024  0.055  0.0319  0.0034  0.066
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.787      0.261              -            -
+    BVAR              0.918      0.133              -            -
+    BLP-FMAR          0.939      0.269              -            -
+    BLP-block         0.933      0.269              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Correctly specified DGP: every flag below is a FALSE POSITIVE.
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.05   block 2:  0.96   block 3:  0.93   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.33  0.50  0.17    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.67  0.33  0.00 
+      eq 2:  0.33  0.67  0.00 
+      eq 3:  0.50  0.33  0.17 
+    the same on early horizons (h <= 6):
+      eq 1:  0.17  0.33  0.50 
+      eq 2:  0.33  0.33  0.33 
+      eq 3:  0.50  0.33  0.17 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.67  at (eq 1, block 1)
+      early (h<=6) : 0.50  at (eq 3, block 1)   <- FALSE-POSITIVE baseline
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.67 0.17 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.000
+
+
+
+########################################################################
+# mc_fmar_final_correct.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = correct
+ Correctly specified stable VAR(2).
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 3.2% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.106|0.107  0.098|0.099  0.087|0.088  0.097|0.098    1.477
+    BVAR         0.051|0.050  0.043|0.041  0.037|0.036  0.044|0.042    0.636
+    BLP-FMAR     0.074|0.074  0.067|0.067  0.059|0.058  0.066|0.066    1.000
+    BLP-block    0.075|0.075  0.067|0.067  0.059|0.059  0.067|0.067    1.011
+    (ratio = preferred IRMSE relative to BLP-FMAR; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0177  0.0093  0.098  0.0148  0.0078  0.089  0.0187  0.0099  0.101
+    BVAR          0.0195  0.0017  0.042  0.0270  0.0037  0.068  0.0168  0.0010  0.033
+    BLP-FMAR      0.0209  0.0040  0.066  0.0205  0.0050  0.074  0.0211  0.0036  0.064
+    BLP-block     0.0214  0.0040  0.067  0.0222  0.0045  0.072  0.0212  0.0038  0.066
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.836      0.280              -            -
+    BVAR              0.841      0.129              -            -
+    BLP-FMAR          0.949      0.287              -            -
+    BLP-block         0.945      0.287              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Correctly specified DGP: every flag below is a FALSE POSITIVE.
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  0.99   block 2:  0.96   block 3:  0.95   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.41  0.29  0.30    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.36  0.35  0.30 
+      eq 2:  0.41  0.29  0.30 
+      eq 3:  0.40  0.31  0.29 
+    the same on early horizons (h <= 6):
+      eq 1:  0.38  0.37  0.25 
+      eq 2:  0.33  0.34  0.33 
+      eq 3:  0.33  0.34  0.33 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.41  at (eq 2, block 1)
+      early (h<=6) : 0.38  at (eq 1, block 1)   <- FALSE-POSITIVE baseline
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.27 0.07 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.848
+
+
+
+########################################################################
+# mc_fmar_final_dense.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = dense
+ True VARMA(2,1): baseline VAR(2) plus a dense MA(1) term in all equations. The fitted VAR(2) omits dynamics in every block (dense misspecification).
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 3.2% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.150|0.153  0.140|0.142  0.125|0.127  0.138|0.141    1.429
+    BVAR         0.091|0.089  0.082|0.081  0.073|0.072  0.082|0.081    0.822
+    BLP-FMAR     0.109|0.109  0.099|0.099  0.088|0.088  0.099|0.098    1.000
+    BLP-block    0.110|0.110  0.101|0.101  0.089|0.089  0.100|0.100    1.015
+    (ratio = preferred IRMSE relative to BLP-FMAR; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0294  0.0190  0.141  0.0328  0.0162  0.131  0.0282  0.0200  0.144
+    BVAR          0.0416  0.0055  0.081  0.0355  0.0108  0.111  0.0437  0.0036  0.070
+    BLP-FMAR      0.0364  0.0085  0.098  0.0267  0.0116  0.112  0.0398  0.0074  0.094
+    BLP-block     0.0365  0.0087  0.100  0.0285  0.0112  0.110  0.0394  0.0078  0.096
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.840      0.409              -            -
+    BVAR              0.773      0.220              -            -
+    BLP-FMAR          0.939      0.419              -            -
+    BLP-block         0.937      0.419              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Correctly specified DGP: every flag below is a FALSE POSITIVE.
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.02   block 2:  1.02   block 3:  1.00   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.35  0.32  0.33    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.33  0.36  0.31 
+      eq 2:  0.36  0.31  0.33 
+      eq 3:  0.39  0.33  0.28 
+    the same on early horizons (h <= 6):
+      eq 1:  0.34  0.35  0.31 
+      eq 2:  0.34  0.35  0.31 
+      eq 3:  0.30  0.39  0.31 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.39  at (eq 3, block 1)
+      early (h<=6) : 0.39  at (eq 3, block 2)   <- FALSE-POSITIVE baseline
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.31 0.08 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.650
+
+
+
+########################################################################
+# mc_fmar_final_sparse.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = sparse
+ True VAR(3): baseline VAR(2) plus an omitted delayed effect of the shock variable on y_3 (A3(3,1) = -0.30). Fitted VAR(2) prior is misspecified mainly in the "lags of variable 1" block of the y_3 equation.
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 3.2% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.100|0.101  0.095|0.096  0.086|0.086  0.094|0.094    1.452
+    BVAR         0.044|0.043  0.043|0.041  0.075|0.074  0.054|0.053    0.812
+    BLP-FMAR     0.068|0.068  0.064|0.064  0.065|0.063  0.066|0.065    1.000
+    BLP-block    0.068|0.069  0.065|0.064  0.066|0.065  0.067|0.066    1.014
+    (ratio = preferred IRMSE relative to BLP-FMAR; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0158  0.0087  0.094  0.0235  0.0074  0.089  0.0131  0.0091  0.096
+    BVAR          0.0368  0.0015  0.053  0.0639  0.0036  0.093  0.0271  0.0007  0.039
+    BLP-FMAR      0.0192  0.0037  0.065  0.0346  0.0050  0.081  0.0138  0.0033  0.059
+    BLP-block     0.0186  0.0039  0.066  0.0330  0.0049  0.079  0.0134  0.0035  0.061
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+    Per-response detail, h = 2..20:
+    estimator      y_1 |bias| var     y_2 |bias| var     y_3 |bias| var  
+    LP            0.0241 0.0097   0.0142 0.0090   0.0093 0.0073 
+    BVAR          0.0212 0.0018   0.0226 0.0015   0.0667 0.0012 
+    BLP-FMAR      0.0207 0.0042   0.0115 0.0039   0.0255 0.0031 
+    BLP-block     0.0217 0.0041   0.0113 0.0039   0.0227 0.0036 
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.847      0.279              -            -
+    BVAR              0.625      0.119              -            -
+    BLP-FMAR          0.943      0.285              -            -
+    BLP-block         0.940      0.285              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Truly misspecified block: g* = 1
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.06   block 2:  0.95   block 3:  0.89   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.62  0.26  0.12    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.35  0.42  0.23 
+      eq 2:  0.45  0.32  0.22 
+      eq 3:  0.77  0.16  0.07 
+    the same on early horizons (h <= 6):
+      eq 1:  0.32  0.37  0.31 
+      eq 2:  0.36  0.35  0.29 
+      eq 3:  0.98  0.02  0.01 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.77  at (eq 3, block 1)
+      early (h<=6) : 0.98  at (eq 3, block 1)   <- the TRUE block
+    P(block g* ranked first): aggregate 0.62;  by equation: 0.35 0.45 0.77
+    early horizons (h <= 6), by equation:       0.32 0.36 0.98
+    mean rank of g* : 1.47 (chance = 2.00, best = 1)
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.26 0.06 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.604
+
+
+
+########################################################################
+# mc_fmar_sanity_correct.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = correct
+ Correctly specified stable VAR(2).
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 25.0% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.103|0.103  0.098|0.099  0.091|0.091  0.097|0.098    1.383
+    BVAR         0.063|0.061  0.044|0.043  0.039|0.038  0.049|0.047    0.667
+    BLP-FMAR     0.082|0.081  0.070|0.070  0.062|0.061  0.071|0.071    1.000
+    BLP-block    0.082|0.082  0.071|0.070  0.062|0.062  0.072|0.071    1.006
+    (ratio = preferred IRMSE relative to BLP-FMAR; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0271  0.0086  0.098  0.0195  0.0099  0.102  0.0298  0.0082  0.096
+    BVAR          0.0185  0.0023  0.047  0.0312  0.0054  0.083  0.0139  0.0012  0.034
+    BLP-FMAR      0.0263  0.0042  0.071  0.0222  0.0064  0.086  0.0277  0.0034  0.065
+    BLP-block     0.0273  0.0042  0.071  0.0242  0.0059  0.084  0.0284  0.0036  0.067
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.840      0.284              -            -
+    BVAR              0.765      0.135              -            -
+    BLP-FMAR          0.945      0.290              -            -
+    BLP-block         0.934      0.291              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Correctly specified DGP: every flag below is a FALSE POSITIVE.
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.00   block 2:  0.92   block 3:  0.93   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.50  0.25  0.25    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.38  0.25  0.38 
+      eq 2:  0.38  0.38  0.25 
+      eq 3:  0.50  0.38  0.12 
+    the same on early horizons (h <= 6):
+      eq 1:  0.38  0.38  0.25 
+      eq 2:  0.38  0.50  0.12 
+      eq 3:  0.62  0.12  0.25 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.50  at (eq 3, block 1)
+      early (h<=6) : 0.62  at (eq 3, block 1)   <- FALSE-POSITIVE baseline
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.12 0.12 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.375
+
+
+
+########################################################################
+# mc_fmar_sanity_sparse.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = sparse
+ True VAR(3): baseline VAR(2) plus an omitted delayed effect of the shock variable on y_3 (A3(3,1) = -0.30). Fitted VAR(2) prior is misspecified mainly in the "lags of variable 1" block of the y_3 equation.
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 25.0% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.079|0.080  0.089|0.090  0.087|0.088  0.085|0.086    1.598
+    BVAR         0.028|0.027  0.043|0.042  0.073|0.073  0.048|0.047    0.878
+    BLP-FMAR     0.049|0.049  0.051|0.050  0.063|0.062  0.054|0.054    1.000
+    BLP-block    0.052|0.052  0.051|0.050  0.067|0.067  0.057|0.056    1.042
+    (ratio = preferred IRMSE relative to BLP-FMAR; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0205  0.0072  0.086  0.0182  0.0076  0.087  0.0213  0.0071  0.085
+    BVAR          0.0327  0.0013  0.047  0.0513  0.0029  0.079  0.0261  0.0007  0.036
+    BLP-FMAR      0.0158  0.0028  0.054  0.0208  0.0045  0.072  0.0140  0.0022  0.047
+    BLP-block     0.0177  0.0030  0.056  0.0221  0.0041  0.068  0.0161  0.0026  0.052
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+    Per-response detail, h = 2..20:
+    estimator      y_1 |bias| var     y_2 |bias| var     y_3 |bias| var  
+    LP            0.0183 0.0065   0.0262 0.0075   0.0170 0.0076 
+    BVAR          0.0163 0.0005   0.0196 0.0016   0.0623 0.0018 
+    BLP-FMAR      0.0129 0.0022   0.0118 0.0027   0.0228 0.0034 
+    BLP-block     0.0153 0.0025   0.0118 0.0026   0.0260 0.0038 
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.851      0.267              -            -
+    BVAR              0.660      0.119              -            -
+    BLP-FMAR          0.943      0.273              -            -
+    BLP-block         0.928      0.274              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Truly misspecified block: g* = 1
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.05   block 2:  0.94   block 3:  0.90   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.75  0.00  0.25    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.12  0.62  0.25 
+      eq 2:  0.25  0.50  0.25 
+      eq 3:  1.00  0.00  0.00 
+    the same on early horizons (h <= 6):
+      eq 1:  0.00  0.62  0.38 
+      eq 2:  0.25  0.62  0.12 
+      eq 3:  0.88  0.12  0.00 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 1.00  at (eq 3, block 1)
+      early (h<=6) : 0.88  at (eq 3, block 1)   <- the TRUE block
+    P(block g* ranked first): aggregate 0.75;  by equation: 0.12 0.25 1.00
+    early horizons (h <= 6), by equation:       0.00 0.25 0.88
+    mean rank of g* : 1.50 (chance = 2.00, best = 1)
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.25 0.00 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.000
+
+
+
+########################################################################
+# mc_fmar_sparse.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = sparse
+ True VAR(3): baseline VAR(2) plus an omitted delayed effect of the shock variable on y_3 (A3(3,1) = -0.30). Fitted VAR(2) prior is misspecified mainly in the "lags of variable 1" block of the y_3 equation.
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 28.9% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.117|0.120  0.108|0.112  0.086|0.085  0.104|0.105    1.271
+    BVAR         0.060|0.060  0.053|0.054  0.072|0.070  0.062|0.061    0.740
+    BLP-FMAR     0.099|0.100  0.083|0.086  0.066|0.063  0.083|0.083    1.000
+    BLP-block    0.100|0.102  0.086|0.088  0.067|0.064  0.084|0.085    1.021
+    (ratio = preferred IRMSE relative to BLP-FMAR; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0390  0.0100  0.105  0.0411  0.0073  0.094  0.0382  0.0110  0.110
+    BVAR          0.0433  0.0018  0.061  0.0635  0.0038  0.095  0.0361  0.0011  0.049
+    BLP-FMAR      0.0346  0.0057  0.083  0.0353  0.0057  0.085  0.0344  0.0057  0.082
+    BLP-block     0.0348  0.0061  0.085  0.0331  0.0055  0.083  0.0355  0.0064  0.085
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+    Per-response detail, h = 2..20:
+    estimator      y_1 |bias| var     y_2 |bias| var     y_3 |bias| var  
+    LP            0.0514 0.0119   0.0341 0.0120   0.0315 0.0062 
+    BVAR          0.0299 0.0031   0.0325 0.0020   0.0675 0.0003 
+    BLP-FMAR      0.0423 0.0082   0.0333 0.0063   0.0283 0.0028 
+    BLP-block     0.0454 0.0081   0.0338 0.0069   0.0253 0.0034 
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.766      0.267              -            -
+    BVAR              0.444      0.113              -            -
+    BLP-FMAR          0.851      0.271              -            -
+    BLP-block         0.845      0.271              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Truly misspecified block: g* = 1
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.08   block 2:  0.88   block 3:  0.92   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.50  0.17  0.33    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.33  0.33  0.33 
+      eq 2:  0.33  0.33  0.33 
+      eq 3:  0.83  0.00  0.17 
+    the same on early horizons (h <= 6):
+      eq 1:  0.00  0.67  0.33 
+      eq 2:  0.33  0.50  0.17 
+      eq 3:  1.00  0.00  0.00 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.83  at (eq 3, block 1)
+      early (h<=6) : 1.00  at (eq 3, block 1)   <- the TRUE block
+    P(block g* ranked first): aggregate 0.50;  by equation: 0.33 0.33 0.83
+    early horizons (h <= 6), by equation:       0.00 0.33 1.00
+    mean rank of g* : 1.67 (chance = 2.00, best = 1)
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.17 0.17 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.167
+
+
+
+########################################################################
+# mc_sparse.mat
+########################################################################
+
+========================================================================
+ Monte Carlo: DGP = sparse
+ True VAR(3): baseline VAR(2) plus an omitted delayed effect of the shock variable on y_3 (A3(3,1) = -0.30). Fitted VAR(2) prior is misspecified mainly in the "lags of variable 1" block of the y_3 equation.
+ Monte Carlo se of an RMSE ~ rmse/sqrt(2R) = 7.1% of it.
+========================================================================
+
+[1] INTEGRATED RMSE   (legacy h=1..20 | PREFERRED h=2..20)
+    estimator        y_1            y_2            y_3            mean      ratio
+    LP           0.101|0.102  0.095|0.096  0.084|0.084  0.093|0.094    1.411
+    VAR          0.045|0.044  0.047|0.045  0.073|0.071  0.055|0.054    0.805
+    BLP-glob     0.067|0.067  0.068|0.067  0.067|0.065  0.067|0.067    1.000
+    BLP-block    0.069|0.069  0.067|0.066  0.065|0.064  0.067|0.066    0.996
+    (ratio = preferred IRMSE relative to BLP-glob; < 1 = better)
+
+[2] BIAS-VARIANCE DECOMPOSITION (averaged over responses)
+                 h = 2..20              h = 2..6 (early)       h = 7..20 (late)      
+    estimator     |bias|     var   rmse  |bias|     var   rmse  |bias|     var   rmse
+    LP            0.0168  0.0085  0.094  0.0275  0.0070  0.088  0.0130  0.0091  0.096
+    VAR           0.0344  0.0018  0.054  0.0592  0.0040  0.092  0.0255  0.0010  0.040
+    BLP-glob      0.0205  0.0038  0.067  0.0399  0.0047  0.081  0.0136  0.0035  0.061
+    BLP-block     0.0195  0.0039  0.066  0.0358  0.0048  0.079  0.0137  0.0036  0.062
+    (variance is the Monte Carlo variance of the estimator;
+     MSE = bias^2 + variance exactly, asserted in summarize_montecarlo)
+
+    Per-response detail, h = 2..20:
+    estimator      y_1 |bias| var     y_2 |bias| var     y_3 |bias| var  
+    LP            0.0252 0.0097   0.0134 0.0090   0.0117 0.0068 
+    VAR           0.0177 0.0020   0.0228 0.0018   0.0626 0.0015 
+    BLP-glob      0.0182 0.0040   0.0136 0.0042   0.0298 0.0033 
+    BLP-block     0.0184 0.0042   0.0135 0.0041   0.0267 0.0033 
+
+[3] INTERVALS at nominal 90%, averaged over responses and h = 2..20
+    estimator      coverage avg length   cover (post)   len (post)
+    LP                0.846      0.276              -            -
+    VAR               0.702      0.136              -            -
+    BLP-glob          0.702      0.133              -            -
+    BLP-block         0.752      0.150              -            -
+
+[4a] TAU DIAGNOSTICS -- block scales
+    Truly misspecified block: g* = 1
+    mean posterior tau by block (averaged over equations, h = 1..20):
+      block 1:  1.26   block 2:  1.19   block 3:  1.14   
+    mean posterior P(tau > 1) by block:
+      block 1:   NaN   block 2:   NaN   block 3:   NaN   
+    argmax frequency by block (aggregate):  0.45  0.35  0.20    (chance = 0.33)
+    argmax frequency by equation x block (all horizons):
+      eq 1:  0.36  0.37  0.27 
+      eq 2:  0.30  0.39  0.31 
+      eq 3:  0.74  0.17  0.09 
+    the same on early horizons (h <= 6):
+      eq 1:  0.35  0.35  0.30 
+      eq 2:  0.37  0.30  0.33 
+      eq 3:  0.95  0.04  0.01 
+    CONCENTRATION (max over equation x block of the win rate; nominal chance = 0.33, but the honest null is
+     the same statistic on the CORRECT-DGP run -- it is a maximum over 9 cells):
+      all horizons : 0.74  at (eq 3, block 1)
+      early (h<=6) : 0.95  at (eq 3, block 1)   <- the TRUE block
+    P(block g* ranked first): aggregate 0.45;  by equation: 0.36 0.30 0.74
+    early horizons (h <= 6), by equation:       0.35 0.37 0.95
+    mean rank of g* : 1.68 (chance = 2.00, best = 1)
+    NOTE: the aggregate flag rules below average tau over equations before
+          comparing blocks, which dilutes a signal confined to one equation.
+          Compare their rates against the correct-DGP run before using them.
+    flag rate at ratio thresholds 1.25: 1.50: 2.00:  0.14 0.01 0.00 
+    chain: mean ESS(beta) -, ESS(log tau) -, acceptance -, tau clips/rep 0.420
+
+
+
+########################################################################
+# EXPLORATORY GRID (R = 40 -- a sorting device, not a finding)
+########################################################################
+Ratios are adaptive / global integrated RMSE over h = 2..H;
+< 1 means adaptation helps.  At R = 40 the Monte Carlo se of a
+single RMSE is about 11% of it.
+
+case,axis,dgp,R,T,p,H,irmse_global_h2,irmse_block_h2,irmse_pooled_h2,ratio_block,ratio_pooled,ratio_block_early,ratio_pooled_early,detect_prob,detect_prob_best_eq,flag_rate,verdict_block,verdict_pooled,label
+sparsity_correct,sparsity,correct,40,200,2,12,0.071607,0.0704719,0.0683107,0.9841,0.9540,0.9606,0.9395,NaN,NaN,0.100,early horizons,improves RMSE,"correctly specified VAR(2): nothing to escape from"
+sparsity_interm,sparsity,intermediate,40,200,2,12,0.0705731,0.07285,0.0729307,1.0323,1.0334,1.0369,1.0403,0.900,0.850,0.150,diagnostic only,diagnostic only,"intermediate: A3(:,1) wrong in every equation, one block"
+sparsity_sparse,sparsity,sparse,40,200,2,12,0.074279,0.0737687,0.0724226,0.9931,0.9750,0.9768,0.9824,0.725,0.925,0.125,early horizons,improves RMSE,"sparse: one wrong entry A3(3,1) = -0.30, one equation"
