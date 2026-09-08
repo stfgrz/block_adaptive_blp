@@ -129,6 +129,32 @@ from, and it is why the pooled estimator can beat the global baseline
 even on the correctly specified DGP, where there is nothing to escape
 from at all.
 
+### The null depends on the fitted specification
+
+The `p = 3` grid cell is the sharpest test of "is a large `tau` evidence
+of misspecification?". There the fitted VAR(3) **nests** the sparse
+design's truth, so nothing is misspecified and every flag is a false
+positive. Yet the concentration statistic reads **0.68**, against
+**0.42** on the correct DGP at `p = 2`.
+
+Nothing is wrong with the diagnostic; the reading is that a richer
+fitted VAR estimates its prior centre less precisely at `T = 200`, and
+the LP disagrees most with that centre exactly where the extra
+coefficient lives. The diagnostic is detecting **prior-data
+disagreement**, faithfully — and at `p = 3` the disagreement is
+sampling noise in the centre, not structure.
+
+Two consequences, and they matter more than any RMSE number here.
+
+1. **A fixed threshold on `tau` cannot be calibrated once and reused.**
+   The false-positive rate of any rule depends on `K`, `T`, the fitted
+   lag order and the persistence of the system, because all of those
+   determine how sharply the prior centre is estimated.
+2. **The null has to be simulated for the specification at hand.** That
+   is precisely what the Chapter 7 design already calls for (its "Leg 2"
+   parametric bootstrap under the fitted BVAR), and this cell is the
+   simulation-side argument for why that leg is not optional.
+
 ---
 
 ## 1. Established: exact nesting

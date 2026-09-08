@@ -137,10 +137,6 @@ end
 if nargin < 3 || isempty(early_H), early_H = min(6, H); end
 early_H = min(early_H, H);
 
-d.est = which_est;
-d.dgp_name = mc.dgp_name;
-d.misspec_block = mc.misspec_block;
-d.R = R;  d.K = K;  d.G = G;  d.H = H;  d.early_H = early_H;
 % TWO DIFFERENT THINGS, kept apart:
 %   .false_positive  -- NOTHING is misspecified, so every flag is by
 %                       construction a false positive.  True for the
@@ -157,22 +153,56 @@ d.R = R;  d.K = K;  d.G = G;  d.H = H;  d.early_H = early_H;
 if isfield(mc, 'is_misspecified') && ~isempty(mc.is_misspecified)
     is_miss = logical(mc.is_misspecified);
 else
-    % Fallback for results stored before the flag existed: infer it from
-    % the design.  'dense' is misspecified at every lag order; 'correct'
-    % never is; the sparse and intermediate designs are misspecified
-    % exactly when they named a block.
+    % The flag is absent from results stored before it existed.  DERIVE
+    % it from the recorded DESIGN (mc.meta.p and mc.dgp_params) rather
+    % than from mc.misspec_block: that label was written by the DGP
+    % without knowing the fitted lag order, so a p >= 3 run of the sparse
+    % design carries "block 1" even though a fitted VAR(3) nests its
+    % truth and nothing is wrong.  Deriving it makes the diagnostic
+    % correct whichever version of the code produced the file.
+    pfit = NaN;
+    if isfield(mc, 'meta') && isstruct(mc.meta) && isfield(mc.meta, 'p')
+        pfit = mc.meta.p;
+    end
     switch mc.dgp_name
-        case 'correct', is_miss = false;
-        case 'dense',   is_miss = true;
-        otherwise,      is_miss = ~isempty(mc.misspec_block);
+        case 'correct'
+            is_miss = ~isnan(pfit) && pfit < 2;      % truth is a VAR(2)
+        case 'dense'
+            is_miss = true;                          % no finite p nests a VARMA
+        case {'sparse', 'intermediate'}
+            % truth is a VAR(3): misspecified only when p < 3 AND the
+            % design's strength is nonzero
+            strength_on = true;
+            if isfield(mc, 'dgp_params') && isstruct(mc.dgp_params)
+                for fn = {'sparse_a31', 'interm_scale'}
+                    if isfield(mc.dgp_params, fn{1})
+                        strength_on = strength_on && (mc.dgp_params.(fn{1}) ~= 0);
+                    end
+                end
+            end
+            is_miss = strength_on && (isnan(pfit) || pfit < 3);
+        otherwise
+            is_miss = ~isempty(mc.misspec_block);
     end
 end
 d.false_positive  = ~is_miss;
-d.no_unique_block = is_miss && isempty(mc.misspec_block);
+% If nothing is misspecified, there is no true block to score against,
+% whatever label the stored struct carries.
+gstar_effective = mc.misspec_block;
+if ~is_miss, gstar_effective = []; end
+d.no_unique_block = is_miss && isempty(gstar_effective);
 d.fitted_p_nests_truth = false;
 if isfield(mc, 'fitted_p_nests_truth') && ~isempty(mc.fitted_p_nests_truth)
     d.fitted_p_nests_truth = mc.fitted_p_nests_truth && ~strcmp(mc.dgp_name, 'correct');
+elseif d.false_positive && ~strcmp(mc.dgp_name, 'correct')
+    d.fitted_p_nests_truth = true;
 end
+
+d.est = which_est;
+d.dgp_name = mc.dgp_name;
+d.misspec_block = gstar_effective;
+d.misspec_block_label = mc.misspec_block;   % what the DGP recorded
+d.R = R;  d.K = K;  d.G = G;  d.H = H;  d.early_H = early_H;
 
 % --- posterior summaries averaged over replications --------------------
 d.tau_bar     = mean(tau_mean, 4);
@@ -211,7 +241,7 @@ for g = 1:G, d.argmax_freq(g) = mean(winner == g); end
 % --- per-equation localisation ------------------------------------------
 win_eq = zeros(K, R);  win_eqe = zeros(K, R);
 rank_true_eq = nan(K, R);
-gstar = mc.misspec_block;
+gstar = gstar_effective;
 for r = 1:R
     for i = 1:K
         t_all  = squeeze(mean(tau_mean(i, :, :, r), 3));
