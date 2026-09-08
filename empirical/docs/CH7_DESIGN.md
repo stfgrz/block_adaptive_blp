@@ -6,8 +6,32 @@ Status: first full draft (2026-09-01). Companion code lives in
 `RUN_EMPIRICAL.m`, `SMOKE_TEST_EMPIRICAL.m`. Run order, input validation
 and verified estimator signatures: `README_EMPIRICAL.md`.
 
-> **Status caveat (2026-09-01).** The four outcome series have not yet
-> been obtained. The files that previously sat under their names were
+> **Update (2026-09-08).** Three things changed in the simulation code
+> that this chapter should use.
+> 1. `assemble_dataset.m` did not parse (a missing `end`), so nothing in
+>    the package could run at all. Fixed, and pinned by
+>    `tests/test_empirical_pipeline.m`, which now exercises every
+>    interface on a clearly-labelled synthetic fixture that
+>    `RUN_EMPIRICAL` refuses.
+> 2. The industrial-production series is now pinned to ONE key,
+>    Eurostat `sts_inpr_m M.PRD.B-D.SCA.I21.EA20`; the silent EA19
+>    download fallback is gone (different geography).
+> 3. A **third estimator** is available: `estimate_blp_blockpooled`,
+>    which smooths `log tau` across horizons. On the simulations it makes
+>    the tau map markedly sharper — `P(tau > 1)` for the truly
+>    misspecified block runs 0.85–0.97 across `h = 1..8` against the
+>    independent estimator's ragged 0.12–0.98 — which is exactly what
+>    Leg 1 of this chapter needs. The null calibration of Leg 2 should be
+>    run for it as well as for the independent estimator.
+> Also: the right statistic for Leg 1 is the **per-equation x block
+> winner map** and its maximum, not a threshold on the level of `tau`.
+> On the simulations the aggregate threshold rules do not discriminate
+> at all (0.06 on the misspecified DGP against 0.07 on the correct one)
+> because averaging `tau` over equations dilutes a signal confined to
+> one equation. See `montecarlo/tau_diagnostics.m`.
+>
+> **Status caveat (2026-09-01, unchanged).** The four outcome series have
+> not yet been obtained. The files that previously sat under their names were
 > generated placeholders, not data, and are quarantined in
 > `data/raw/placeholder_rejected/`; `fetch_outcome_data` and
 > `assemble_dataset` now refuse them. Every number in this document that
