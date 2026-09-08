@@ -38,7 +38,11 @@ on a misspecified DGP must be read next to the rate at which the same
 rule fires on the **correctly specified** DGP, where every flag is a
 false positive by construction. Both are reported, always, and the
 diagnostic struct is stamped `false_positive = true` in the second case
-so the two cannot be confused.
+so the two cannot be confused. In particular the *nominal* chance level
+`1/G` is a lower bound on the null of the concentration statistic, not
+the null itself: that statistic is a maximum over `K*G` cells, and in
+this design block 1 (the shock variable) is mildly favoured even under
+correct specification. The correct-DGP run is the null.
 
 **`tau` is prior–data disagreement, not misspecification.** A large
 `tau_{i,g,h}` says the horizon-`h` LP coefficients of block `g` in

@@ -51,12 +51,18 @@ function d = tau_diagnostics(mc, which_est, early_H)
 %   .max_argmax_freq / .max_argmax_freq_early
 %       max over (equation, block) of the share of replications in which
 %       that block wins in that equation, over all horizons and over the
-%       early window.  Under the correct DGP the winner is uniform over
-%       the G blocks in every equation, so this statistic has a
-%       CALIBRATED NULL: it is the maximum of K*G frequencies each with
-%       mean 1/G, and on the correct DGP it lands a little above 1/G by
-%       chance alone.  On a DGP with a genuine localised conflict it goes
-%       to 1 in the affected equation.  The aggregate flag rules below,
+%       early window.  On a DGP with a genuine localised conflict this
+%       goes towards 1 in the affected equation; with nothing to find it
+%       stays near the chance level.
+%       .argmax_chance = 1/G is the NOMINAL chance level, and it is a
+%       lower bound on the null, not the null itself: this is a MAXIMUM
+%       over K*G cells, so sampling variation alone pushes it above 1/G,
+%       and in this project's design block 1 (the shock variable) is
+%       mildly favoured even under correct specification.  The honest
+%       null is therefore the SAME STATISTIC COMPUTED ON THE CORRECT-DGP
+%       RUN, which is why every reported detection number is quoted next
+%       to it.  On the R = 500 runs: 0.98 (sparse, the true cell) against
+%       0.38 (correct), with 1/G = 0.33.  The aggregate flag rules below,
 %       by contrast, average tau over equations BEFORE comparing blocks,
 %       which dilutes a signal confined to one equation almost to
 %       nothing -- on this project's designs they do not discriminate at
