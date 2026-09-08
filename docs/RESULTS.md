@@ -139,7 +139,7 @@ Thirteen cells at `R = 40`, `H = 12`.
 
 ## 3. Headline Monte Carlo runs
 
-`results/mc_final_<dgp>.mat`, `R = 500` (sparse, correct) and `R = 250`
+`results/mc_headline_<dgp>.mat`, `R = 500` (sparse, correct) and `R = 250`
 (intermediate, dense), at `K = 3`, `p = 2`, `T = 200`, `H = 20`, FMAR
 mode with `h1_mode = 'lp'`.
 

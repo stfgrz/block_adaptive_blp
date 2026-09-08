@@ -30,9 +30,12 @@ function out_file = write_results_report(out_file, results_dir)
 %
 % NOTES
 % -----
-% Results are reported in a fixed order (final runs first, by DGP, then
+% Results are reported in a fixed order (the new five-estimator headline
+% runs first, by DGP, then the earlier mc_final_* baselines, then
 % anything else) so successive versions of the file are comparable line
-% by line.  A summary saved before the current metrics existed is
+% by line.  The earlier baselines are kept rather than overwritten: they
+% predate the h = 2..H metric, the Rao-Blackwellised point estimate and
+% the pooled estimator, and results/README.txt says so.  A summary saved before the current metrics existed is
 % recomputed from its stored replication output.
 
 root = fileparts(fileparts(mfilename('fullpath')));
@@ -46,7 +49,9 @@ end
 d = dir(fullfile(results_dir, 'mc_*.mat'));
 names = {d.name};
 % Fixed order: the final runs first, by DGP, then everything else.
-pref = {'mc_final_sparse.mat', 'mc_final_correct.mat', ...
+pref = {'mc_headline_sparse.mat', 'mc_headline_correct.mat', ...
+        'mc_headline_intermediate.mat', 'mc_headline_dense.mat', ...
+        'mc_final_sparse.mat', 'mc_final_correct.mat', ...
         'mc_final_intermediate.mat', 'mc_final_dense.mat'};
 ordered = {};
 for k = 1:numel(pref)

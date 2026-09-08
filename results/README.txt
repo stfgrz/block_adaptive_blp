@@ -3,13 +3,13 @@ empirical).
 
 WHAT LANDS HERE
 ---------------
-mc_final_<dgp>.mat        headline Monte Carlo runs (R = 500 for the
+mc_headline_<dgp>.mat        headline Monte Carlo runs (R = 500 for the
                           sparse and correct DGPs, R = 250 for the
                           intermediate and dense ones).  Each contains
                           `mc` (raw replication output) and `s`
                           (summarize_montecarlo).  Read them with
-                              report_montecarlo('results/mc_final_sparse.mat')
-mc_final_<dgp>_*.csv      the same numbers as tidy CSV:
+                              report_montecarlo('results/mc_headline_sparse.mat')
+mc_headline_<dgp>_*.csv      the same numbers as tidy CSV:
    *_metrics.csv          bias, variance, MSE, RMSE, coverage and
                           interval length per (estimator, response,
                           horizon), plus the posterior-quantile band
@@ -29,7 +29,7 @@ grid/                     the exploratory experiment grid: one .mat and
                           with the per-cell verdict
 chunks/                   intermediate per-process chunks of a parallel
                           run, and their logs.  Not tracked by git; the
-                          merged mc_final_* files are what matters
+                          merged mc_headline_* files are what matters
 sensitivity_approximations.csv
                           what the three remaining approximations cost
                           (see docs/APPROXIMATIONS.md)
@@ -37,8 +37,10 @@ fig*.png                  figures from RUN_ME_FIRST / RUN_FMAR_DEMO
 
 EARLIER RESULTS
 ---------------
-mc_*.mat files without the `final` prefix are from earlier runs and are
-kept as-is.  They predate three changes and are NOT comparable
+mc_*.mat files WITHOUT the `headline` prefix (mc_final_*, mc_fmar_*,
+mc_sparse, mc_correct, mc_dense, ...) are from earlier runs and are kept
+as-is; the headline runs were given a different prefix precisely so they
+do not overwrite them.  They predate three changes and are NOT comparable
 term-by-term with the new ones:
   * they report the legacy integrated RMSE over h = 1..H under the FMAR
     h = 1 convention (see README section 3a);

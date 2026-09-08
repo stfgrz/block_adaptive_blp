@@ -15,7 +15,7 @@ The numbers quoted below come from
 
 ```matlab
 S = run_sensitivity_approximations(struct('mc_file', ...
-        fullfile('results', 'mc_final_sparse.mat')));
+        fullfile('results', 'mc_headline_sparse.mat')));
 ```
 
 which writes `results/sensitivity_approximations.csv`.

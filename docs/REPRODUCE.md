@@ -80,7 +80,7 @@ scripts/run_final_parallel.sh intermediate 250 4
 scripts/run_final_parallel.sh dense        250 4
 ```
 
-Each call writes `results/mc_final_<dgp>.mat` plus the CSV exports.
+Each call writes `results/mc_headline_<dgp>.mat` plus the CSV exports.
 Roughly 3 hours per `R = 500` DGP on 4 cores.
 
 Serial equivalent (identical results, ~11 hours per DGP):
@@ -89,7 +89,7 @@ Serial equivalent (identical results, ~11 hours per DGP):
 cfg = mc_preset('final');
 mc  = run_montecarlo(cfg, 'sparse');
 s   = summarize_montecarlo(mc);
-save(fullfile('results', 'mc_final_sparse.mat'), 'mc', 's', '-v7');
+save(fullfile('results', 'mc_headline_sparse.mat'), 'mc', 's', '-v7');
 ```
 
 The chunked and serial runs are **bit-identical**: replication `r`'s
@@ -101,7 +101,7 @@ merges.
 ### Reading the results
 
 ```matlab
-report_montecarlo('results/mc_final_sparse.mat')
+report_montecarlo('results/mc_headline_sparse.mat')
 ```
 
 prints both integrated-RMSE conventions, the bias–variance
@@ -122,7 +122,7 @@ the `tau` diagnostics. The same numbers are in the CSVs:
 
 ```matlab
 run_sensitivity_approximations(struct('mc_file', ...
-    fullfile('results', 'mc_final_sparse.mat')))
+    fullfile('results', 'mc_headline_sparse.mat')))
 ```
 
 Writes `results/sensitivity_approximations.csv`; the interpretation is

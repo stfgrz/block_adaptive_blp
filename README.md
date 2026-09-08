@@ -167,7 +167,7 @@ scripts/run_final_parallel.sh sparse  500 4     # headline run, ~3 h
 ```
 
 ```matlab
-report_montecarlo('results/mc_final_sparse.mat')   % all headline tables
+report_montecarlo('results/mc_headline_sparse.mat')   % all headline tables
 ```
 
 ## 6. Folder structure

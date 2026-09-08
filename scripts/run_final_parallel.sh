@@ -7,6 +7,14 @@
 # (montecarlo/merge_montecarlo.m asserts the design matches and that the
 # replication indices cover 1..R exactly once).
 #
+# OUTPUT NAMING.  The merged result is written to
+#   results/mc_headline_<dgp>.mat
+# NOT results/mc_<preset>_<dgp>.mat.  The repository already contains
+# mc_final_<dgp>.mat files from earlier prototype-mode runs, and those
+# are baselines that must be preserved; the "headline" prefix keeps the
+# new five-estimator runs from overwriting them.  The per-process chunks
+# still carry the preset name so a chunk directory is self-describing.
+#
 # Usage:  scripts/run_final_parallel.sh DGP [R] [NCHUNK] [PRESET]
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -41,8 +49,9 @@ octave-cli --no-gui --quiet --eval \
    for k = 1:numel(fl), L = load(fl{k}); ch{k} = L.mc; end; \
    mc = merge_montecarlo(ch); \
    s = summarize_montecarlo(mc); \
-   out = fullfile('$ROOT', 'results', sprintf('mc_%s_%s.mat', '$PRESET', '$DGP')); \
+   stem = sprintf('mc_headline_%s', '$DGP'); \
+   out = fullfile('$ROOT', 'results', [stem '.mat']); \
    save(out, 'mc', 's', '-v7'); \
-   export_montecarlo_csv(s, fullfile('$ROOT', 'results', sprintf('mc_%s_%s', '$PRESET', '$DGP'))); \
+   export_montecarlo_csv(s, fullfile('$ROOT', 'results', stem)); \
    fprintf('merged %d replications -> %s\n', s.R, out);" \
-  2>&1 | tee "$LOGDIR/merge_${PRESET}_${DGP}.log"
+  2>&1 | tee "$LOGDIR/merge_headline_${DGP}.log"
