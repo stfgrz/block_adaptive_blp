@@ -9,6 +9,19 @@ CSV alongside it; nothing is transcribed by hand.
 > runs described in `docs/REPRODUCE.md`. Where a number is quoted, the
 > file it came from is named. Where a run has not been done, the section
 > says so rather than leaving an impression.
+>
+> Complete as of this revision: the 13-cell exploratory grid
+> (`R = 40`), the sparse headline run (`R = 500`), the sensitivity
+> analysis, and the full test suite. The `correct`, `intermediate` and
+> `dense` headline runs were still executing when this was written; the
+> correct-DGP false-positive numbers quoted below therefore come from
+> the earlier `R = 500` run in `results/mc_fmar_final_correct.mat`,
+> which used the FMAR `h = 1` convention and draw-averaged point
+> estimates. Those conventions do not affect the τ localisation
+> statistics, which is why they are quotable here; they do affect the
+> RMSE columns, which is why no RMSE number is quoted from that file.
+> Regenerate everything with `write_results_report` once the runs
+> finish.
 
 ---
 
@@ -352,4 +365,25 @@ equation almost to nothing.
 `results/sensitivity_approximations.csv`; the reasoning is in
 `docs/APPROXIMATIONS.md`.
 
-<!-- RESULTS-SENSITIVITY -->
+Full reasoning and the tables are in `docs/APPROXIMATIONS.md`. In one
+line each, against a noise baseline (the identical estimator re-run from
+a different seed) of 0.0125 in IRF units:
+
+* **Cross-equation covariance in the sampler: immaterial.** Fixing σ²
+  at a value that used the system information moves the IRF by 0.0149
+  (baseline 0.0125) and moves `log τ` by 0.556 (baseline 0.558) — i.e.
+  not at all beyond resampling noise. At τ = 1 the change is *exactly*
+  zero, which is an identity, not an estimate.
+* **Inheriting λ from the global BLP: not an approximation.** The
+  adaptive estimator's own marginal-likelihood selection returns the
+  identical λ (largest gap across datasets 0.00e+00). What *is* an
+  approximation is that λ is chosen at τ = 1 and never re-selected
+  jointly with τ.
+* **Fixed impact vector: negligible** (1.0% of the reported half
+  band-width). **Fixed prior centre: the one that matters** (16.5%).
+  Both channels hit the baseline and the adaptive estimators
+  identically, so neither can explain an RMSE difference between them.
+* **Quasi-Bayesian bands: doing real work.** See the interval table
+  above — the sandwich covers 0.933–0.937 against a nominal 0.90, while
+  posterior quantiles undercover at 0.810 (independent) and 0.691
+  (pooled).
