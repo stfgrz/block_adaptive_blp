@@ -58,8 +58,10 @@ if ischar(src)
     % re-read under the preferred metric without re-running them.
     if isfield(L, 's') && isfield(L.s, 'irmse_h2')
         s = L.s;
+        if isfield(L, 'mc'), s.mc_ref = L.mc; end
     elseif isfield(L, 'mc')
         s = summarize_montecarlo(L.mc);
+        s.mc_ref = L.mc;
         fprintf(1, ['[report_montecarlo] the stored summary predates the ' ...
                     'current metrics; recomputed from mc.]\n']);
     else
@@ -115,6 +117,67 @@ end
 if ~isempty(ig)
     fprintf(fid, '    (ratio = preferred IRMSE relative to %s; < 1 = better)\n', ...
             s.est_names{ig});
+end
+
+% --- 1b. paired comparisons against the global baseline ------------------
+% A 1-2% gap in integrated RMSE cannot be judged against the naive
+% Monte Carlo se of a single RMSE (rmse/sqrt(2R)); every estimator sees
+% the SAME simulated samples, so the DIFFERENCE is estimated far more
+% precisely than either level.  This is that difference, with its own
+% standard error.
+if ~isempty(ig) && H >= 2
+    fprintf(fid, '\n[1b] PAIRED COMPARISON against %s, h = 2..%d (same samples)\n', ...
+            s.est_names{ig}, H);
+    fprintf(fid, '     %-12s %11s %10s %7s %14s %8s\n', 'estimator', ...
+            'dMSE', 'se', 't', 'RMSE ratio', 'corr');
+    for e = 1:nE
+        if e == ig, continue; end
+        try
+            P = paired_comparison(mc_for(s), s.est_names{e}, s.est_names{ig}, 2:H);
+        catch
+            continue
+        end
+        fprintf(fid, '     %-12s %11.2e %10.2e %7.2f  %.3f [%.3f,%.3f] %6.2f\n', ...
+                s.est_names{e}, P.dMSE, P.se, P.t, P.rmse_ratio, ...
+                P.rmse_ratio_lo, P.rmse_ratio_hi, P.correlation);
+    end
+    fprintf(fid, ['     dMSE < 0 means lower MSE than the baseline; the bracket is a\n' ...
+                  '     one-standard-error band on the RMSE ratio.  |t| < 2 means the\n' ...
+                  '     difference is not resolved even with %d paired replications.\n' ...
+                  '     (This RMSE ratio is sqrt of the ratio of integrated MSEs; the\n' ...
+                  '     ratio in table [1] averages per-horizon RMSEs, so the two differ\n' ...
+                  '     slightly by Jensen. Both are reported; neither is wrong.)\n'], R);
+
+    % --- THE table: the ranking depends on which horizons are averaged --
+    % Adaptation buys bias reduction early and pays variance late, so the
+    % integrated verdict is decided by how many late horizons the average
+    % happens to include.  Reporting a single integrated number without
+    % this decomposition invites reading an arbitrary choice of H as a
+    % property of the estimator.
+    wins = {2:min(6, H), 2:min(12, H), 2:H, min(7, H):H};
+    lbl  = {'early', 'to h=12', 'ALL h>=2', 'late'};
+    fprintf(fid, '\n[1c] RMSE RATIO BY HORIZON WINDOW (paired; < 1 = adaptation helps)\n');
+    fprintf(fid, '     %-12s', 'estimator');
+    for w = 1:numel(wins)
+        fprintf(fid, ' %16s', sprintf('%s (%d-%d)', lbl{w}, wins{w}(1), wins{w}(end)));
+    end
+    fprintf(fid, '\n');
+    for e = 1:nE
+        if e == ig, continue; end
+        if isempty(strfind(s.est_names{e}, 'BLP')), continue; end  %#ok<STREMP>
+        fprintf(fid, '     %-12s', s.est_names{e});
+        for w = 1:numel(wins)
+            try
+                P = paired_comparison(mc_for(s), s.est_names{e}, s.est_names{ig}, wins{w});
+                fprintf(fid, ' %8.3f (t%5.1f)', P.rmse_ratio, P.t);
+            catch
+                fprintf(fid, ' %16s', '-');
+            end
+        end
+        fprintf(fid, '\n');
+    end
+    fprintf(fid, ['     A sign flip across the columns means the integrated ranking is an\n' ...
+                  '     artefact of the reporting horizon, not a property of the estimator.\n']);
 end
 
 % --- 2. bias-variance ----------------------------------------------------
@@ -288,4 +351,15 @@ end
 % =====================================================================
 function s = num_or_dash(v)
 if isnan(v), s = '-'; else, s = sprintf('%.3f', v); end
+end
+
+function mc = mc_for(s)
+% The paired comparison needs the raw replication output.  It is carried
+% on the summary as .mc_ref when the summary was produced from a file or
+% handed one; without it the paired table is skipped rather than faked.
+if isfield(s, 'mc_ref') && ~isempty(s.mc_ref)
+    mc = s.mc_ref;
+else
+    error('report_montecarlo: no replication output available for pairing.');
+end
 end

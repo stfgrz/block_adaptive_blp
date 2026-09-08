@@ -258,7 +258,92 @@ But the false-positive baseline is **not a constant**: 0.42 at `p = 2`,
 (intermediate, dense), at `K = 3`, `p = 2`, `T = 200`, `H = 20`, FMAR
 mode with `h1_mode = 'lp'`.
 
-<!-- RESULTS-FINAL -->
+### The single most informative table in the study
+
+`results/mc_headline_sparse.mat`, `R = 500`, sparse DGP. Paired
+comparison against the global FMAR baseline — every estimator sees the
+same simulated sample in every replication, so the *difference* is
+estimated far more precisely than either level (the per-replication MSEs
+correlate at 0.96–0.98, which buys roughly an order of magnitude of
+precision over an unpaired comparison). `< 1` means adaptation helps;
+`t` is the Monte Carlo t-statistic of the paired MSE difference.
+
+| estimator | early (h=2–6) | h=2–12 | **all (h=2–20)** | late (h=7–20) |
+|---|---|---|---|---|
+| BLP-block (independent τ) | **0.968** (t −14.3) | **0.988** (t −5.7) | 1.012 (t +3.9) | 1.040 (t +8.2) |
+| BLP-pooled (τ pooled over h) | **0.973** (t −7.4) | **0.973** (t −8.3) | 1.003 (t **+0.7**) | 1.021 (t +3.1) |
+
+**This answers the question the project was stuck on.** Block adaptation
+does not "lose on average" in any interesting sense. It **reliably wins
+at early horizons** (3% lower RMSE, `t = −14`) and **reliably loses at
+late ones** (4% higher, `t = +8`), and the integrated verdict is decided
+by nothing more than how many late horizons the average happens to
+include. At `H = 20` the fourteen late horizons outvote the five early
+ones; at `H = 12` they do not, and the sign flips. A single integrated
+RMSE reported without this decomposition invites reading an arbitrary
+choice of `H` as a property of the estimator.
+
+**And it answers what horizon pooling buys.** Pooling *preserves* the
+early-horizon correction (0.968 → 0.973, statistically the same) while
+*halving* the late-horizon penalty (1.040 → 1.021). That takes the
+integrated ratio from a reliably-worse 1.012 (`t = 3.9`) to
+indistinguishable from the baseline: **1.003, `t = 0.67`**. The pooled
+estimator buys the early-horizon bias reduction essentially for free.
+
+### Bias and variance, sparse DGP, R = 500
+
+| estimator | h=2–20 \|bias\| | var | h=2–6 \|bias\| | var | h=7–20 \|bias\| | var |
+|---|---|---|---|---|---|---|
+| BLP-FMAR | 0.0201 | 0.0040 | 0.0342 | 0.0053 | 0.0151 | 0.0036 |
+| BLP-block | 0.0194 | 0.0042 | **0.0326** | 0.0051 | 0.0147 | 0.0039 |
+| BLP-pooled | 0.0195 | 0.0041 | 0.0354 | **0.0049** | 0.0138 | 0.0038 |
+
+The mechanism is exactly the one hypothesised: **bias falls where the
+VAR prior is wrong** (in `y_3`, the misspecified response, the bias goes
+0.0270 → 0.0244 → 0.0243) and **variance rises where it is not** (late
+horizons, 0.0036 → 0.0039). Pooling attacks the second term without
+giving up the first.
+
+### Intervals, sparse DGP, R = 500 (nominal 90%)
+
+| estimator | coverage (sandwich) | length | coverage (posterior quantiles) | length |
+|---|---|---|---|---|
+| LP | 0.836 | 0.278 | — | — |
+| BVAR | 0.601 | 0.116 | — | — |
+| BLP-FMAR | 0.937 | 0.284 | — | — |
+| BLP-block | 0.933 | 0.284 | 0.810 | 0.181 |
+| BLP-pooled | 0.934 | 0.286 | 0.691 | 0.138 |
+
+This is the empirical price of approximation 3. The quasi-Bayesian
+Newey–West sandwich covers at 0.93–0.94 against a nominal 0.90 (mildly
+conservative); the **posterior-quantile bands undercover badly** — 0.81
+for the independent estimator and **0.69** for the pooled one, whose
+posterior is sharper precisely because pooling concentrates it. Keeping
+the sandwich as the primary interval is doing real work, and the pooled
+estimator's posterior spread should not be reported as a credible band.
+
+### τ localisation, sparse DGP, R = 500
+
+Concentration statistic (max over equation × block of the win rate):
+
+| window | value | at | reading |
+|---|---|---|---|
+| all horizons | 0.80 | (eq 3, block 1) | the true cell |
+| early (h ≤ 6) | **0.97** | (eq 3, block 1) | the true cell |
+
+Per-equation × block early-horizon winner map:
+
+| | block 1 | block 2 | block 3 |
+|---|---|---|---|
+| eq 1 | 0.31 | 0.37 | 0.31 |
+| eq 2 | 0.35 | 0.33 | 0.32 |
+| **eq 3** | **0.97** | 0.02 | 0.00 |
+
+Equations 1 and 2 sit at chance, as they should — nothing is wrong
+there. Equation 3 is found essentially every time. The aggregate flag
+rules, by contrast, fire at 0.04–0.24 and are useless: averaging τ over
+equations before comparing blocks dilutes a signal confined to one
+equation almost to nothing.
 
 ---
 
