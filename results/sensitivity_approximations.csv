@@ -9,5 +9,9 @@ B2_fixed_prior_centre,sd_from_prior_centre,0.02217274828
 B2_fixed_prior_centre,ratio,0.1650210853
 B3_fixed_lambda,lambda_inherited,0.1691585068
 B3_fixed_lambda,lambda_reselected,0.1691585068
-B3_fixed_lambda,max_dIRF,0.01097650637
-B3_fixed_lambda,max_dIRF_over_posterior_sd,0.1830800559
+B3_fixed_lambda,max_dIRF,0
+B3_fixed_lambda,max_dIRF_over_posterior_sd,0
+B3_fixed_lambda,max_lambda_gap,0
+noise_baseline,max_dIRF,0.0125216117
+noise_baseline,max_dIRF_over_posterior_sd,0.1978075127
+noise_baseline,max_dlogtau,0.5582879084

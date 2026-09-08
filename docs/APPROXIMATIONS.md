@@ -20,6 +20,54 @@ S = run_sensitivity_approximations(struct('mc_file', ...
 
 which writes `results/sensitivity_approximations.csv`.
 
+## The numbers, in one table
+
+Sparse DGP, 10 simulated datasets, exploratory preset. Every entry is
+the **maximum over all (equation, horizon) cells** of a replication,
+averaged over replications — a worst-cell measure, not a typical one.
+Each variant is run from the **same seed** as the baseline, and the
+first row is the yardstick: the identical estimator run from a
+*different* seed. A modelling change that moves the IRF by less than
+that has not been shown to matter at all.
+
+| | max abs IRF change | ... / posterior sd | max abs change in log tau |
+|---|---|---|---|
+| **noise baseline** (same estimator, different seed) | 0.0125 | 0.198 | 0.558 |
+| A. sigma2 fixed at the system NIW value | 0.0149 | 0.231 | 0.556 |
+| B3. lambda re-selected instead of inherited | **0.0000** | **0.000** | — |
+
+| | sd contributed | reported half band-width | ratio |
+|---|---|---|---|
+| B1. impact vector `b1n` held fixed | 0.0014 | 0.1344 | **0.010** |
+| B2. prior centre held at the BVAR posterior mean | 0.0222 | 0.1344 | **0.165** |
+
+**What this says.**
+
+* **A is immaterial.** Fixing `sigma2` at a value that used the
+  cross-equation information moves the IRF by 0.0149 against a
+  pure-resampling baseline of 0.0125, and moves `log tau` by 0.556
+  against a baseline of 0.558 — i.e. not at all. Combined with the exact
+  result at `tau = 1` (the change is *identically zero*, verified in
+  `tests/test_approximations.m`), the per-equation treatment of `Sigma`
+  is not a live concern for the point estimate. It remains a real
+  restriction on the posterior *spread*, which is why the primary bands
+  are not posterior quantiles.
+* **B3 is not an approximation.** The adaptive estimator's own
+  marginal-likelihood selection returns *exactly* the global BLP's
+  `lambda_h` (largest gap across datasets: 0.00e+00) — same objective,
+  same data, both evaluated at `tau = 1`. Inheriting it changes nothing.
+  What remains an approximation is that `lambda_h` is chosen at
+  `tau = 1` and never re-selected jointly with `tau`; that is a
+  different, larger model and is listed as future work.
+* **B1 is negligible, B2 is the one that matters.** Impact-vector
+  uncertainty contributes 1% of the reported half band-width;
+  prior-centre uncertainty contributes 16.5%, sixteen times more. If any
+  of the three fixed quantities is to be made stochastic, it is the
+  prior centre. Note that both channels affect the global baseline and
+  the adaptive estimators *identically*, so neither can explain an RMSE
+  difference between them — they matter for coverage, not for the
+  comparison.
+
 ---
 
 ## 1. The adaptive sampler ignores cross-equation covariance
