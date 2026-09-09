@@ -271,6 +271,44 @@ But the false-positive baseline is **not a constant**: 0.42 at `p = 2`,
 (intermediate, dense), at `K = 3`, `p = 2`, `T = 200`, `H = 20`, FMAR
 mode with `h1_mode = 'lp'`.
 
+### All four headline runs, in one table
+
+Paired RMSE ratios against the global FMAR baseline; `< 1` means
+adaptation helps. `R = 500` for correct and sparse, `R = 250` for
+intermediate and dense.
+
+| DGP | estimator | early (2–6) | **all (2–20)** | late (7–20) |
+|---|---|---|---|---|
+| correct | BLP-block | 0.965 (t −13.9) | 1.011 (t +3.0) | 1.031 (t +6.3) |
+| correct | **BLP-pooled** | **0.949** (t −11.4) | **0.988** (t −2.2) | 1.005 (t +0.7) |
+| sparse | BLP-block | 0.968 (t −14.3) | 1.012 (t +3.9) | 1.040 (t +8.2) |
+| sparse | **BLP-pooled** | **0.973** (t −7.4) | 1.003 (t +0.7) | 1.021 (t +3.1) |
+| intermediate | BLP-block | 1.033 (t +9.1) | 1.025 (t +6.2) | 1.019 (t +3.2) |
+| intermediate | BLP-pooled | 1.040 (t +7.3) | 1.014 (t +2.7) | 0.996 (t −0.5) |
+| dense | BLP-block | 0.984 (t −4.7) | 1.011 (t +2.6) | 1.024 (t +4.0) |
+| dense | **BLP-pooled** | **0.974** (t −3.8) | 0.999 (t −0.2) | 1.011 (t +1.2) |
+
+Four readings, all of them firm at these sample sizes:
+
+1. **The pooled estimator dominates the independent one on every DGP**,
+   at every horizon window bar one. If the adaptive layer is used at
+   all, it should be used with the horizons pooled.
+2. **The independent block-adaptive estimator is reliably worse on
+   integrated RMSE on all four DGPs** (1.011–1.025, `t` between 2.6 and
+   6.2). There is no design here in which it is the right choice.
+3. **The pooled estimator is a tie or a small win on three of four**
+   (0.988, 1.003, 0.999) and a small loss on the fourth (1.014). Its
+   *largest* integrated win is on the **correctly specified** DGP.
+4. **The early/late split is the rule, not a sparse-DGP quirk** — it
+   holds on correct, sparse and dense. The intermediate design is the
+   one exception, and there adaptation is worse everywhere.
+
+Reading 3 deserves emphasis because it is awkward for the obvious
+motivation. The best case for this estimator, on integrated RMSE, is the
+case where the VAR prior is *right*. That is consistent with the
+tightening mechanism and inconsistent with selling it as a
+misspecification remedy.
+
 ### The single most informative table in the study
 
 `results/mc_headline_sparse.mat`, `R = 500`, sparse DGP. Paired
@@ -469,3 +507,99 @@ a different seed) of 0.0125 in IRF units:
   above — the sandwich covers 0.933–0.937 against a nominal 0.90, while
   posterior quantiles undercover at 0.810 (independent) and 0.691
   (pooled).
+
+---
+
+## 5. What the evidence supports as the contribution
+
+The question this note has to answer is whether the thesis should frame
+its contribution as **(1)** an improved estimator, **(2)** a Bayesian /
+localised specification diagnostic, or **(3)** still inconclusive.
+
+**The evidence supports (2), with a specific and defensible secondary
+claim.** It does not support (1), and (3) understates what is now firmly
+established.
+
+### Why not (1), an improved estimator
+
+The independent block-adaptive estimator is **reliably worse on
+integrated RMSE on all four DGPs** (1.011–1.025, `t` from 2.6 to 6.2).
+The pooled estimator is a tie or a small win on three of four and a
+small loss on the fourth. To claim an improved estimator one would have
+to lean on the early-horizon window — where the gains are real and
+strongly significant (0.949–0.974 on three of four DGPs) — and that
+claim is only as good as the choice of window, which the horizon-window
+table shows is doing the work. Worse for the narrative: the pooled
+estimator's **largest** integrated win is on the **correctly specified**
+DGP (0.988), which is the wrong headline for a thesis about
+misspecification.
+
+### Why (2), a localised specification diagnostic
+
+Here the evidence is strong, and it is the kind of evidence a diagnostic
+needs — a measured null, not just a signal.
+
+* **Localisation works and is calibrated.** The true (equation, block)
+  cell is ranked first in **97%** of replications at early horizons,
+  against a **37%** false-positive baseline measured on the correct DGP
+  at the same `R = 500`. Equations with nothing wrong sit at chance.
+* **Detection works and is calibrated.** `P(τ > 1) > 0.5` somewhere
+  fires at **0.74** on the sparse DGP against **0.03** under the null —
+  a genuine test at a 3% false-positive rate.
+* **It is honest when there is nothing to localise.** On the dense
+  (VARMA) DGP, which is misspecified everywhere, the concentration
+  statistic reads 0.42 — the same as the correct-DGP baseline. It does
+  not manufacture a block.
+* **Monotone dose–response** in misspecification strength
+  (0.42 → 0.72 → 0.95 → 1.00).
+* **It costs nothing to adopt.** The adaptive layer is *exactly* nested
+  in the published FMAR estimator at `τ = 1` (machine precision, 912
+  comparisons), so the diagnostic can be run alongside an FMAR
+  application without changing the reported IRFs at all.
+* **Horizon pooling makes the diagnostic much sharper**, not just the
+  estimator: `P(τ > 1)` for the true block runs 0.85–0.97 across
+  `h = 1..8` instead of a ragged 0.12–0.98.
+
+### The two caveats that must travel with it
+
+1. **The null is specification-dependent.** The false-positive baseline
+   is 0.42 at `p = 2` but 0.62–0.68 at `p = 3`/`p = 4`, where the fitted
+   VAR *nests* the truth and nothing is wrong: a richer fit estimates
+   its prior centre less precisely and τ faithfully reports the
+   resulting disagreement. No threshold transfers across
+   specifications; the null has to be simulated for the design at hand.
+   This is exactly the parametric bootstrap the Chapter 7 design already
+   specifies, and it is now an argued requirement rather than a
+   precaution.
+2. **The diagnostic does not tell you whether escaping will help.** On
+   the intermediate DGP the τ map localises perfectly *and* adaptation
+   is worse at every horizon. The map looks the same in the case where
+   adaptation helps and the case where it hurts. A diagnostic that finds
+   where the prior fails is therefore not, by itself, a prescription to
+   let that block escape.
+
+### The defensible secondary claim
+
+Caveat 2 is not only a limitation: stated positively, it is a finding.
+**Knowing where a VAR prior fails does not imply that locally escaping
+it improves estimation** — and this project has the paired,
+`R = 500` evidence to say so, together with the mechanism (the group
+horseshoe monetises *sparsity in the deviation from the prior centre*,
+which is a different and stronger condition than the misspecification
+being localised). That is a real, quotable negative result about
+adaptive shrinkage, not a null finding.
+
+The horizon-pooled estimator should be reported as the methodological
+contribution that makes the diagnostic usable — sharper τ paths, and an
+adaptive layer that no longer costs integrated RMSE (1.003 on the sparse
+DGP, `t = 0.67`) — rather than as an estimator that beats the benchmark.
+
+### One-line recommendation
+
+> Frame the thesis around a **calibrated, localised diagnostic for
+> prior–data conflict in VAR-centred Bayesian local projections**, whose
+> credibility rests on exact nesting in the published estimator and on
+> measured nulls; report the horizon-pooled adaptive estimator as the
+> refinement that makes the diagnostic sharp and RMSE-neutral; and
+> present the failure of localisation to imply improvement as a finding
+> in its own right rather than as a disappointing RMSE table.
