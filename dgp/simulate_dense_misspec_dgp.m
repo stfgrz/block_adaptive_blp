@@ -62,9 +62,10 @@ B0 = [1.00 0.00 0.00;
       0.30 0.90 0.00;
       0.15 0.25 0.80];
 
-M  = [0.40 0.15 0.10;
-      0.15 0.35 0.15;
-      0.10 0.15 0.40];
+dense_scale = dgp_param(cfg, 'dense_scale', 1.0);
+M  = dense_scale * [0.40 0.15 0.10;
+                    0.15 0.35 0.15;
+                    0.10 0.15 0.40];
 
 assert(max(abs(eig(M))) < 1, ...
     'simulate_dense_misspec_dgp: MA polynomial not invertible.');
@@ -77,10 +78,28 @@ dgp.c             = c;
 dgp.Sigma         = B0 * B0';
 dgp.B0            = B0;
 dgp.misspec_block = [];
-dgp.description   = ['True VARMA(2,1): baseline VAR(2) plus a dense ' ...
-    'MA(1) term in all equations. The fitted VAR(2) omits dynamics ' ...
-    'in every block (dense misspecification).'];
+% No finite VAR order nests a VARMA, so unlike the sparse and
+% intermediate designs this stays misspecified at every cfg.p.
+dgp.fitted_p_nests_truth = false;
+% Misspecified at every lag order, but with NO unique block to find:
+% misspec_block = [] here means "nothing localisable", not "nothing
+% wrong".  A tau flag on this DGP is therefore not a false positive.
+dgp.is_misspecified = (dense_scale ~= 0);
+dgp.params        = struct('dense_scale', dense_scale);
+dgp.description   = sprintf(['True VARMA(2,1): baseline VAR(2) plus a dense ' ...
+    'MA(1) term in all equations, scaled by %.2f. The fitted VAR(2) omits ' ...
+    'dynamics in every block (dense misspecification).'], dense_scale);
 
 [dgp.Y, dgp.eta] = simulate_linear_dgp(dgp, cfg);
 dgp.theta_true   = compute_true_irf(dgp, cfg, 'analytic');
+end
+
+% =====================================================================
+function v = dgp_param(cfg, name, default)
+% Read cfg.dgp.<name> if present, otherwise the documented default.
+v = default;
+if isfield(cfg, 'dgp') && isstruct(cfg.dgp) && isfield(cfg.dgp, name) ...
+        && ~isempty(cfg.dgp.(name))
+    v = cfg.dgp.(name);
+end
 end

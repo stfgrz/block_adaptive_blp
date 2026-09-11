@@ -29,7 +29,12 @@ function x = draw_ig(shape, rate)
 % -----
 % Uses utils/draw_gamma.m; no toolbox needed; reproducible under rng.
 
-assert(shape > 0 && rate > 0, 'draw_ig: shape and rate must be > 0.');
+% Plain conditional rather than assert(): see the note in draw_gamma.m --
+% assert() is an m-file in Octave and this is called inside every Gibbs
+% sweep.
+if ~(shape > 0 && rate > 0)
+    error('draw_ig: shape and rate must be > 0.');
+end
 g = draw_gamma(shape, 1);
 x = rate / g;
 end

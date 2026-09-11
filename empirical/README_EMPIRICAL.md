@@ -63,6 +63,50 @@ null = run_null_calibration();                                     % R = 200
 Do the `n_rep = 10` timing run first and scale `n_rep` from the printed
 seconds-per-rep.
 
+## Repairs and additions (2026 revision)
+
+**`assemble_dataset.m` did not parse.** A missing `end` left the local
+function `load_outcome` unterminated, so the file was a *parse error* in
+both MATLAB and Octave: nothing in the package could be run, not even to
+check an interface. Fixed. `tests/test_empirical_pipeline.m` now calls
+`nargin` on every function of the package, which fails on exactly this
+class of bug.
+
+**One unambiguous industrial-production series.** The chapter uses
+Eurostat `sts_inpr_m`, key **`M.PRD.B-D.SCA.I21.EA20`**: production
+(volume) for industry excluding construction, seasonally and calendar
+adjusted, euro area 20, 2021 = 100. `fetch_outcome_data` previously fell
+back to **EA19** if EA20 failed — a different *geography*, substituted
+silently, which would have changed the object being estimated without
+changing a line of output. That fallback is gone. The only automatic
+fallback left is the 2015 = 100 base of the *same* EA20 series, which is
+harmless because the variable enters as `100*log(index)` and a change of
+base is absorbed by the constant. Substituting EA19 by hand is allowed
+but must be stated in the thesis.
+
+**Provenance.** Every accepted raw file now gets a `<file>.source.txt`
+sidecar naming the series and the URL it came from, and
+`assemble_dataset` copies those lines into `ds.meta.sources`. A saved
+dataset therefore names its own inputs. Files placed by hand are
+recorded as `unrecorded`, not as something they are not.
+
+**Required inputs are documented in the code.** The header of
+`assemble_dataset.m` lists exactly what must exist before it will do
+anything: the shipped EA-EMPD event file (via `build_shock_series`) and
+the four raw csvs. It refuses to run without them, naming the missing
+file and the function that fetches it.
+
+**A synthetic fixture, for testing only.**
+`empirical/tests/make_synthetic_fixture.m` builds a `T × 5` dataset from
+a stable VAR(2) with the documented variable order and `isrw` vector, so
+the estimator interfaces can be exercised on a machine that has none of
+the licensed data. It is **simulated data**: stamped
+`ds.synthetic = true`, written to `SYNTHETIC_ea_dataset_FIXTURE.mat`
+rather than the name the driver reads, and **refused** by both
+`RUN_EMPIRICAL` and `SMOKE_TEST_EMPIRICAL`. No empirical result may come
+from it. Given that this package already had to quarantine four
+fabricated placeholder csvs (below), the guard is deliberate.
+
 ## Data integrity — read this before touching `ea_check_series`
 
 `fetch_outcome_data` and `assemble_dataset` both validate the four outcome
@@ -89,9 +133,11 @@ alarm.
 Eurostat industrial-production key was corrected after a live run: the
 indicator code is **`PRD`** (not `PROD`) and the current index base is
 **`I21`** (2021 = 100), giving
-`sts_inpr_m/M.PRD.B-D.SCA.I21.EA20`. A different index base year is
-harmless anyway: the variables enter as `100*log(index)`, so a rescaling
-is absorbed by the constant.
+`sts_inpr_m/M.PRD.B-D.SCA.I21.EA20` — the one series the chapter uses
+(see "Repairs and additions" above for why EA19 is no longer an
+automatic fallback). A different index base year is harmless: the
+variables enter as `100*log(index)`, so a rescaling is absorbed by the
+constant.
 
 **Over-broad exports.** The Eurostat Data Browser exports every geo and
 activity if you leave those filters open — one file with dozens of
@@ -137,7 +183,12 @@ are checked rather than documented:
   `.theta_mean`.
 * `blpb = estimate_blp_blockadaptive(Y, cfg, bvar, lambda_mat)` →
   `.theta_mean`, `.lo/.hi` (K×(H+1)), `.tau_mean` (K×G×H, G = K, index
-  h = 1..H).
+  h = 1..H), and now also `.tau_q`, `.p_tau_gt1`, `.theta_cond`,
+  `.beta_block`.
+* `blpp = estimate_blp_blockpooled(Y, cfg, bvar, lambda_mat)` → the
+  horizon-pooled adaptive estimator, same interface as `blpb` plus
+  `.kappa_mean`. Available to the chapter but not yet wired into
+  `RUN_EMPIRICAL`.
 * `lp = estimate_lp_lagaug(Y, cfg, bvar)` → `.theta` (K×(H+1)).
 * utils: `build_lp_regressors(x, p)` with layout `[1, y_t, y_{t-1}, ...]`;
   `empirical_quantile(x, probs)`; `normal_quantile(p)`;

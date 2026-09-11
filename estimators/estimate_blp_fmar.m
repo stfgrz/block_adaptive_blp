@@ -33,10 +33,26 @@ function blp = estimate_blp_fmar(Y, cfg, bvar)
 %      impact vector b1n held FIXED at the BVAR point estimate.  This
 %      is FMAR's ex-post correction for the MA(h-1) serial correlation
 %      that the per-horizon Gaussian likelihood ignores.
-%   7. h = 0 and h = 1 are taken from the Bayesian VAR itself (point =
-%      posterior mean IRF, bands = NIW posterior-draw quantiles), and
-%      lambda(1) is the BVAR tightness -- exactly as in FMAR, where the
-%      h <= 1 responses come from the VAR block.
+%   7. h = 0 is always the shared identification step (theta = b1n).
+%      What happens at h = 1 is controlled by cfg.fmar.h1_mode:
+%        'bvar' (DEFAULT, the FMAR convention): h = 1 is taken from the
+%           Bayesian VAR itself (point = posterior mean IRF, bands = NIW
+%           posterior-draw quantiles), and lambda(1) is the BVAR
+%           tightness -- exactly as in FMAR, where the h <= 1 responses
+%           come from the VAR block.
+%        'lp' (HARMONISED comparison): h = 1 is estimated as a local
+%           projection with the same FMAR machinery as h >= 2 (prior
+%           centre A^1, psi(1), lambda_1 from select_lambda_fmar, NW
+%           sandwich band with L = 2).
+%      WHY THE OPTION EXISTS.  The block-adaptive estimator has always
+%      run an LP at h = 1, so under 'bvar' the two estimators are not
+%      even the same class of object at h = 1 and any h = 1 RMSE gap
+%      confounds "LP vs VAR" with "adaptive vs global".  Under 'lp' the
+%      two agree exactly at tau = 1 for EVERY h >= 1, so h = 1 enters
+%      the comparison on the same footing as the other horizons.  The
+%      Monte Carlo reports an integrated RMSE over h = 2..H (which is
+%      unaffected by this switch) as the PREFERRED metric, and the
+%      legacy h = 1..H version alongside it.
 %
 % MODEL / EQUATIONS
 % -----------------
@@ -48,7 +64,8 @@ function blp = estimate_blp_fmar(Y, cfg, bvar)
 % INPUTS
 % ------
 % Y    : (T x K) raw data.
-% cfg  : configuration struct (cfg.p, cfg.H, cfg.ci_level, cfg.fmar.*).
+% cfg  : configuration struct (cfg.p, cfg.H, cfg.ci_level, cfg.fmar.*,
+%        incl. the optional cfg.fmar.h1_mode described above).
 % bvar : output of estimate_bvar_niw (prior centre, b1n, detrending,
 %        h <= 1 responses and bands, lambda at h = 1).
 %
@@ -63,7 +80,8 @@ function blp = estimate_blp_fmar(Y, cfg, bvar)
 %                          at each horizon; replicated for interface
 %                          compatibility)
 %   .prior_theta           (K x (H+1)) IRF implied by the prior centre
-%   .diag                  struct (.lambda_at_bound count)
+%   .diag                  struct (.lambda_at_bound count, .h1_mode,
+%                          .h_start = first horizon estimated as an LP)
 %
 % DIMENSIONS
 % ----------
@@ -81,6 +99,7 @@ p = cfg.p;  H = cfg.H;
 zcrit = normal_quantile(1 - (1 - cfg.ci_level) / 2);
 b1n = bvar.b1n;
 m = 1 + K * p;
+h1_mode = fmar_h1_mode(cfg);
 
 % --- detrend and build shared regressors -------------------------------
 dt = var_deterministic_trend(Y, bvar.B, p);
@@ -95,16 +114,27 @@ lambda_used = zeros(K, H);
 prior_theta = zeros(K, H + 1);
 n_at_bound = 0;
 
-% --- h = 0 and h = 1 from the Bayesian VAR (FMAR convention) -----------
+% --- h = 0: shared identification step ---------------------------------
 theta(:, 1) = bvar.theta(:, 1);   lo(:, 1) = bvar.theta_lo(:, 1);   hi(:, 1) = bvar.theta_hi(:, 1);
-theta(:, 2) = bvar.theta(:, 2);   lo(:, 2) = bvar.theta_lo(:, 2);   hi(:, 2) = bvar.theta_hi(:, 2);
-lambda_used(:, 1) = bvar.lambda;
 prior_theta(:, 1) = b1n;
-prior_theta(:, 2) = bvar.Psi(:, :, 2) * b1n;
 
-% --- horizons h >= 2 -----------------------------------------------------
+% --- h = 1: BVAR (FMAR convention) or LP (harmonised comparison) -------
+switch h1_mode
+    case 'bvar'
+        theta(:, 2) = bvar.theta(:, 2);
+        lo(:, 2) = bvar.theta_lo(:, 2);   hi(:, 2) = bvar.theta_hi(:, 2);
+        lambda_used(:, 1) = bvar.lambda;
+        prior_theta(:, 2) = bvar.Psi(:, :, 2) * b1n;
+        h_start = 2;
+    case 'lp'
+        h_start = 1;                  % h = 1 goes through the LP loop
+    otherwise
+        error('estimate_blp_fmar: unknown cfg.fmar.h1_mode ''%s''.', h1_mode);
+end
+
+% --- horizons h >= h_start ----------------------------------------------
 J = [eye(K), zeros(K, K * (p - 1))];
-for h = 2:H
+for h = h_start:H
     Zh = Zall(1:end - h, :);            % (N_h x m)
     Yh = x(p + h:Tx, :);                % (N_h x K)
     Nh = size(Zh, 1);
@@ -150,6 +180,19 @@ blp.hi          = hi;
 blp.lambda      = lambda_used;
 blp.prior_theta = prior_theta;
 blp.diag.lambda_at_bound = n_at_bound;
+blp.diag.h1_mode = h1_mode;
+blp.diag.h_start = h_start;
 
 assert(all(isfinite(theta(:))), 'estimate_blp_fmar: non-finite estimates.');
+end
+
+% =====================================================================
+function mode_str = fmar_h1_mode(cfg)
+% Resolve cfg.fmar.h1_mode, defaulting to the FMAR convention 'bvar'
+% so every earlier configuration struct keeps its exact behaviour.
+mode_str = 'bvar';
+if isfield(cfg, 'fmar') && isstruct(cfg.fmar) && ...
+        isfield(cfg.fmar, 'h1_mode') && ~isempty(cfg.fmar.h1_mode)
+    mode_str = cfg.fmar.h1_mode;
+end
 end

@@ -9,13 +9,23 @@
 % the block-adaptive layer nested inside it:
 %   1.  set up path and configuration, switch to FMAR mode;
 %   2.  single sparse-misspecification dataset: estimate
-%         LP, BVAR (GLP), BLP-FMAR (global), BLP-block (adaptive),
+%         LP, BVAR (GLP), BLP-FMAR (global), BLP-block (adaptive,
+%         tau independent by horizon) and BLP-pooled (adaptive, log tau
+%         smoothed across horizons),
 %       print the selected lambda path and the posterior block scales
 %       tau (block 1 should escape in the y_3 equation at short h);
-%   3.  verify the tau = 1 nesting on this dataset (block estimator
-%       with tau fixed at 1 reproduces the FMAR posterior mean);
+%   3.  verify the tau = 1 nesting on this dataset EXACTLY, using the
+%       samplers' conditional posterior mean rather than the Gibbs
+%       average, for both adaptive estimators;
 %   4.  optionally run a small Monte Carlo (sparse + correct DGP) and
-%       print bias / RMSE / coverage / detection summaries.
+%       print the full report: both integrated-RMSE conventions, the
+%       bias-variance decomposition, interval performance and the tau
+%       diagnostics (montecarlo/report_montecarlo.m).
+%
+% The demonstration runs with cfg.fmar.h1_mode = 'lp', so the global
+% baseline and the adaptive estimators are the same class of object at
+% h = 1 and the nesting is exact from h = 1 upwards.  Set it back to
+% 'bvar' for the published FMAR convention.
 %
 % QUICK MODE: QUICK_DEMO = true; RUN_FMAR_DEMO  shrinks everything.
 %
@@ -37,8 +47,17 @@ addpath(fullfile(this_dir, 'config'), fullfile(this_dir, 'dgp'), ...
 results_dir = fullfile(this_dir, 'results');
 if ~exist(results_dir, 'dir'), mkdir(results_dir); end
 
+% Figures are optional: on a headless machine Octave may have no
+% graphics toolkit at all, and `figure` would then abort the script
+% AFTER the expensive estimation and BEFORE anything is printed.
+[CAN_PLOT, PLOT_WHY] = can_plot();
+if ~CAN_PLOT
+    fprintf('[figures skipped: %s]\n', PLOT_WHY);
+end
+
 cfg = default_config();
 cfg.mode = 'fmar';
+cfg.fmar.h1_mode = 'lp';        % like-for-like at h = 1 (see the header)
 
 if exist('QUICK_DEMO', 'var') && QUICK_DEMO
     fprintf('*** QUICK_DEMO mode: reduced Monte Carlo and chains ***\n');
@@ -64,6 +83,7 @@ bvar  = estimate_bvar_niw(dgp.Y, cfg);
 lp    = estimate_lp(dgp.Y, cfg, bvar.b1n);
 blp_f = estimate_blp_fmar(dgp.Y, cfg, bvar);
 blp_b = estimate_blp_blockadaptive(dgp.Y, cfg, bvar, blp_f.lambda);
+blp_p = estimate_blp_blockpooled(dgp.Y, cfg, bvar, blp_f.lambda);
 
 fprintf('  BVAR tightness lambda        = %.3f (max |eig| = %.3f)\n', ...
         bvar.lambda, bvar.max_eig);
@@ -76,19 +96,36 @@ tau3 = squeeze(blp_b.tau_mean(3, :, 1:min(8, cfg.H)));
 for g = 1:size(tau3, 1)
     fprintf('    block %d: ', g);  fprintf('%6.2f ', tau3(g, :));  fprintf('\n');
 end
-fprintf('  (block %d is the truly misspecified one)\n\n', dgp.misspec_block);
+fprintf('  (block %d is the truly misspecified one)\n', dgp.misspec_block);
+
+fprintf('\n  The SAME scales under horizon pooling (log tau smoothed across h):\n');
+tau3p = squeeze(blp_p.tau_mean(3, :, 1:min(8, cfg.H)));
+for g = 1:size(tau3p, 1)
+    fprintf('    block %d: ', g);  fprintf('%6.2f ', tau3p(g, :));  fprintf('\n');
+end
+fprintf('  smoothing scale kappa (posterior mean, eq y_3): ');
+fprintf('%.2f ', blp_p.kappa_mean(3, :));  fprintf('\n');
+fprintf('  P(tau > 1) for block %d in eq y_3, h = 1..%d:\n    independent: ', ...
+        dgp.misspec_block, min(8, cfg.H));
+fprintf('%5.2f ', squeeze(blp_b.p_tau_gt1(3, dgp.misspec_block, 1:min(8, cfg.H))));
+fprintf('\n    pooled     : ');
+fprintf('%5.2f ', squeeze(blp_p.p_tau_gt1(3, dgp.misspec_block, 1:min(8, cfg.H))));
+fprintf('\n\n');
 
 % IRF comparison figure for all responses:
 est_list = { ...
   struct('name', 'LP',        'theta', lp.theta,        'lo', lp.lo,   'hi', lp.hi,   'show_band', false), ...
   struct('name', 'BVAR',      'theta', bvar.theta,      'lo', bvar.theta_lo, 'hi', bvar.theta_hi, 'show_band', false), ...
   struct('name', 'BLP-FMAR',  'theta', blp_f.theta_mean,'lo', blp_f.lo, 'hi', blp_f.hi, 'show_band', false), ...
-  struct('name', 'BLP-block', 'theta', blp_b.theta_mean,'lo', blp_b.lo, 'hi', blp_b.hi, 'show_band', true)};
-fig1 = plot_irfs(dgp.theta_true, est_list, cfg, ...
-                 'FMAR mode: IRFs, sparse misspecification');
-if cfg.demo.save_figures
-    print(fig1, fullfile(results_dir, 'fig_fmar_irf_sparse.png'), '-dpng', '-r120');
-    fprintf('  Figure saved to results/fig_fmar_irf_sparse.png\n\n');
+  struct('name', 'BLP-block', 'theta', blp_b.theta_mean,'lo', blp_b.lo, 'hi', blp_b.hi, 'show_band', true), ...
+  struct('name', 'BLP-pooled','theta', blp_p.theta_mean,'lo', blp_p.lo, 'hi', blp_p.hi, 'show_band', false)};
+if CAN_PLOT
+    fig1 = plot_irfs(dgp.theta_true, est_list, cfg, ...
+                     'FMAR mode: IRFs, sparse misspecification');
+    if cfg.demo.save_figures
+        print(fig1, fullfile(results_dir, 'fig_fmar_irf_sparse.png'), '-dpng', '-r120');
+        fprintf('  Figure saved to results/fig_fmar_irf_sparse.png\n\n');
+    end
 end
 
 % ----------------------------------------------------------------------
@@ -96,9 +133,17 @@ end
 % ----------------------------------------------------------------------
 fprintf('[2/3] Nesting check (tau fixed at 1 vs FMAR posterior mean)...\n');
 cfg_fix = cfg;  cfg_fix.blp.fix_tau = 1;
-blp_fix = estimate_blp_blockadaptive(dgp.Y, cfg_fix, bvar, blp_f.lambda);
-nest_err = max(max(abs(blp_fix.theta_mean(:, 3:end) - blp_f.theta_mean(:, 3:end))));
-fprintf('  max |blockadaptive(tau=1) - BLP-FMAR| over h >= 2: %.4f\n\n', nest_err);
+blp_fix  = estimate_blp_blockadaptive(dgp.Y, cfg_fix, bvar, blp_f.lambda);
+blp_fixp = estimate_blp_blockpooled(dgp.Y, cfg_fix, bvar, blp_f.lambda);
+% .theta_cond is the CONDITIONAL posterior mean, which with tau fixed is
+% the exact closed form and carries no Monte Carlo error at all -- so
+% this is a numerical identity, not a "close enough" check.
+h_lo = 2;  if strcmp(cfg.fmar.h1_mode, 'lp'), h_lo = 1; end
+cols = h_lo + 1:cfg.H + 1;
+nest_err  = max(max(abs(blp_fix.theta_cond(:, cols)  - blp_f.theta_mean(:, cols))));
+nest_errp = max(max(abs(blp_fixp.theta_cond(:, cols) - blp_f.theta_mean(:, cols))));
+fprintf('  max |adaptive(tau=1) - BLP-FMAR| over h >= %d: %.2e (independent), %.2e (pooled)\n\n', ...
+        h_lo, nest_err, nest_errp);
 
 % ----------------------------------------------------------------------
 % Step 3: small Monte Carlo (optional)
@@ -111,26 +156,8 @@ if cfg.demo.run_montecarlo
         s  = summarize_montecarlo(mc);
         save(fullfile(results_dir, sprintf('mc_fmar_%s.mat', dname)), 'mc', 's');
 
-        fprintf('\n--- FMAR-mode Monte Carlo summary, DGP = %s (R = %d) ---\n', dname, s.R);
-        fprintf('Integrated RMSE (mean over horizons), per response variable:\n');
-        fprintf('  %-10s', 'estimator');
-        for i = 1:cfg.K, fprintf('     y_%d ', i); end
-        fprintf('\n');
-        for e = 1:4
-            fprintf('  %-10s', s.est_names{e});
-            fprintf('  %7.3f', s.irmse(e, :));
-            fprintf('\n');
-        end
-        fprintf('Average coverage of %d%% intervals (over horizons, response y_%d):\n', ...
-                round(100 * cfg.ci_level), cfg.K);
-        for e = 1:4
-            fprintf('  %-10s  %5.2f\n', s.est_names{e}, ...
-                    mean(squeeze(s.coverage(e, cfg.K, :))));
-        end
-        if ~isnan(s.detect_prob)
-            fprintf('P(truly misspecified block %d has largest scale) = %.2f\n', ...
-                    s.misspec_block, s.detect_prob);
-        end
+        export_montecarlo_csv(s, fullfile(results_dir, sprintf('mc_fmar_%s', dname)));
+        report_montecarlo(s);
     end
 else
     fprintf('[3/3] Monte Carlo skipped (cfg.demo.run_montecarlo = false).\n');

@@ -38,6 +38,14 @@ addpath(fullfile(this_dir, 'config'), fullfile(this_dir, 'dgp'), ...
 results_dir = fullfile(this_dir, 'results');
 if ~exist(results_dir, 'dir'), mkdir(results_dir); end
 
+% Figures are optional: on a headless machine Octave may have no
+% graphics toolkit at all, and `figure` would then abort the script
+% AFTER the expensive estimation and BEFORE anything is printed.
+[CAN_PLOT, PLOT_WHY] = can_plot();
+if ~CAN_PLOT
+    fprintf('[figures skipped: %s]\n', PLOT_WHY);
+end
+
 cfg = default_config();
 
 if exist('QUICK_DEMO', 'var') && QUICK_DEMO
@@ -74,10 +82,12 @@ est_list1 = { ...
   struct('name', 'VAR',       'theta', var1.theta,     'lo', var1.theta_lo, 'hi', var1.theta_hi, 'show_band', false), ...
   struct('name', 'BLP-glob',  'theta', bg1.theta_mean, 'lo', bg1.lo, 'hi', bg1.hi, 'show_band', false), ...
   struct('name', 'BLP-block', 'theta', bb1.theta_mean, 'lo', bb1.lo, 'hi', bb1.hi, 'show_band', true)};
-fig1 = plot_irfs(dgp1.theta_true, est_list1, cfg, ...
-                 'IRFs, correctly specified VAR(2) DGP');
-if cfg.demo.save_figures
-    print(fig1, fullfile(results_dir, 'fig1_irf_correct.png'), '-dpng', '-r120');
+if CAN_PLOT
+    fig1 = plot_irfs(dgp1.theta_true, est_list1, cfg, ...
+                     'IRFs, correctly specified VAR(2) DGP');
+    if cfg.demo.save_figures
+        print(fig1, fullfile(results_dir, 'fig1_irf_correct.png'), '-dpng', '-r120');
+    end
 end
 
 % ----------------------------------------------------------------------
@@ -100,10 +110,12 @@ est_list2 = { ...
   struct('name', 'VAR',       'theta', var2.theta,     'lo', var2.theta_lo, 'hi', var2.theta_hi, 'show_band', false), ...
   struct('name', 'BLP-glob',  'theta', bg2.theta_mean, 'lo', bg2.lo, 'hi', bg2.hi, 'show_band', false), ...
   struct('name', 'BLP-block', 'theta', bb2.theta_mean, 'lo', bb2.lo, 'hi', bb2.hi, 'show_band', true)};
-fig2 = plot_irfs(dgp2.theta_true, est_list2, cfg, ...
-                 'IRFs, sparse misspecification (omitted lag-3 effect of y_1 on y_3)');
-if cfg.demo.save_figures
-    print(fig2, fullfile(results_dir, 'fig2_irf_sparse.png'), '-dpng', '-r120');
+if CAN_PLOT
+    fig2 = plot_irfs(dgp2.theta_true, est_list2, cfg, ...
+                     'IRFs, sparse misspecification (omitted lag-3 effect of y_1 on y_3)');
+    if cfg.demo.save_figures
+        print(fig2, fullfile(results_dir, 'fig2_irf_sparse.png'), '-dpng', '-r120');
+    end
 end
 
 % ----------------------------------------------------------------------
@@ -125,11 +137,13 @@ fprintf(['      Expectation under sparse misspecification: block %d should\n' ..
          '      carry the largest scales, especially in the equation for y_3.\n'], ...
          dgp2.misspec_block);
 
-fig3 = plot_block_scales(bb2.tau_mean, cfg, ...
-    'Posterior block scales, sparse DGP (thick line = truly misspecified block)', ...
-    dgp2.misspec_block);
-if cfg.demo.save_figures
-    print(fig3, fullfile(results_dir, 'fig3_block_scales_sparse.png'), '-dpng', '-r120');
+if CAN_PLOT
+    fig3 = plot_block_scales(bb2.tau_mean, cfg, ...
+        'Posterior block scales, sparse DGP (thick line = truly misspecified block)', ...
+        dgp2.misspec_block);
+    if cfg.demo.save_figures
+        print(fig3, fullfile(results_dir, 'fig3_block_scales_sparse.png'), '-dpng', '-r120');
+    end
 end
 
 % ----------------------------------------------------------------------
@@ -148,14 +162,14 @@ if cfg.demo.run_montecarlo
         fprintf('  %-10s', 'estimator');
         for i = 1:cfg.K, fprintf('     y_%d ', i); end
         fprintf('\n');
-        for e = 1:4
+        for e = 1:numel(s.est_names)
             fprintf('  %-10s', s.est_names{e});
             fprintf('  %7.3f', s.irmse(e, :));
             fprintf('\n');
         end
         fprintf('Average coverage of %d%% intervals (over horizons, response y_%d):\n', ...
                 round(100 * cfg.ci_level), cfg.K);
-        for e = 1:4
+        for e = 1:numel(s.est_names)
             fprintf('  %-10s  %5.2f\n', s.est_names{e}, ...
                     mean(squeeze(s.coverage(e, cfg.K, :))));
         end
@@ -166,13 +180,15 @@ if cfg.demo.run_montecarlo
         fprintf('Share of replications with stable fitted VAR: %.2f\n', ...
                 s.var_stable_share);
 
-        fig4 = plot_rmse(s, cfg);
-        fig5 = plot_block_scales(s.tau_bar, cfg, ...
-            sprintf('MC-average posterior block scales, DGP: %s', dname), ...
-            s.misspec_block);
-        if cfg.demo.save_figures
-            print(fig4, fullfile(results_dir, sprintf('fig4_rmse_%s.png', dname)), '-dpng', '-r120');
-            print(fig5, fullfile(results_dir, sprintf('fig5_scales_%s.png', dname)), '-dpng', '-r120');
+        if CAN_PLOT
+            fig4 = plot_rmse(s, cfg);
+            fig5 = plot_block_scales(s.tau_bar, cfg, ...
+                sprintf('MC-average posterior block scales, DGP: %s', dname), ...
+                s.misspec_block);
+            if cfg.demo.save_figures
+                print(fig4, fullfile(results_dir, sprintf('fig4_rmse_%s.png', dname)), '-dpng', '-r120');
+                print(fig5, fullfile(results_dir, sprintf('fig5_scales_%s.png', dname)), '-dpng', '-r120');
+            end
         end
     end
 else

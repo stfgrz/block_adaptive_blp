@@ -13,11 +13,30 @@ function s = summarize_montecarlo(mc, early_H)
 % [lo, hi] the interval bounds.  With R replications:
 %
 %   bias(e,i,h)   = (1/R) sum_r [ theta_hat - theta0 ]
-%   rmse(e,i,h)   = sqrt( (1/R) sum_r [ theta_hat - theta0 ]^2 )
+%   variance(e,i,h) = (1/R) sum_r [ theta_hat - mean_r theta_hat ]^2
+%                   (Monte Carlo variance of the estimator; the 1/R
+%                    convention makes the identity below exact)
+%   mse(e,i,h)    = bias^2 + variance   (checked numerically below)
+%   rmse(e,i,h)   = sqrt( mse ) = sqrt( (1/R) sum_r [theta_hat-theta0]^2 )
 %   coverage(e,i,h) = (1/R) sum_r 1{ lo <= theta0 <= hi }
 %   avg_len(e,i,h)  = (1/R) sum_r ( hi - lo )
-%   irmse(e,i)    = (1/H) sum_{h=1}^{H} rmse(e,i,h)
-%                   ("integrated RMSE": average RMSE across horizons)
+%
+% INTEGRATED RMSE -- TWO DEFINITIONS
+%   irmse(e,i)    = (1/H) sum_{h=1}^{H} rmse(e,i,h)          [LEGACY]
+%   irmse_h2(e,i) = (1/(H-1)) sum_{h=2}^{H} rmse(e,i,h)      [PREFERRED]
+% The legacy metric is kept so every earlier number stays reproducible,
+% but it is NOT a fair estimator comparison in FMAR mode with the
+% default cfg.fmar.h1_mode = 'bvar': there the global baseline reports
+% the Bayesian VAR at h = 1 while the block-adaptive estimators report
+% an h = 1 local projection, so the h = 1 term mixes "VAR vs LP" into
+% what should be "global vs adaptive".  irmse_h2 drops that horizon and
+% is the metric the write-up should quote.  Setting
+% cfg.fmar.h1_mode = 'lp' makes h = 1 like-for-like as well, in which
+% case the two definitions answer the same question.
+% Two further aggregates help separate "helps early" from "helps
+% overall":
+%   irmse_early(e,i) = mean of rmse over h = 2..early_H
+%   irmse_late(e,i)  = mean of rmse over h = early_H+1..H
 %
 % Block-scale diagnostics (block-adaptive BLP only), scheme
 % 'per_variable' with G = K blocks:
@@ -65,8 +84,19 @@ function s = summarize_montecarlo(mc, early_H)
 % -------
 % s : struct with fields
 %   .est_names, .dgp_name, .misspec_block
-%   .bias, .rmse, .coverage, .avg_len : (4 x K x H)
-%   .irmse                            : (4 x K)
+%   .bias, .variance, .mse, .rmse, .coverage, .avg_len : (nE x K x H)
+%   .coverage_post, .avg_len_post : (nE x K x H) the same for the
+%                          posterior-quantile bands of the sampled
+%                          estimators (NaN where the Monte Carlo did not
+%                          store them)
+%   .irmse, .irmse_h2, .irmse_early, .irmse_late       : (nE x K)
+%   .ibias_h2, .ivar_h2  : (nE x K) integrated |bias| and variance over
+%                          h = 2..H, the bias-variance counterpart of
+%                          irmse_h2
+%   .tau_stats           : struct produced by tau_diagnostics for each
+%                          available scale estimator ('block', 'pooled')
+%   .meta                : the mc.meta reproducibility record, passed
+%                          through so a summary is self-describing
 %   .tau_bar                          : (K x G x H)
 %   .argmax_freq                      : (G x 1)
 %   .detect_prob                      : scalar or NaN
@@ -89,13 +119,17 @@ G = size(mc.tau_mean, 2);
 theta0 = mc.theta_true;                 % (K x (H+1))
 
 bias = zeros(nE, K, H);  rmse = zeros(nE, K, H);
+vari = zeros(nE, K, H);  mse  = zeros(nE, K, H);
 cover = zeros(nE, K, H); alen = zeros(nE, K, H);
 for e = 1:nE
     for i = 1:K
         for h = 1:H
-            err = squeeze(mc.theta(e, i, h + 1, :)) - theta0(i, h + 1);
+            est = squeeze(mc.theta(e, i, h + 1, :));
+            err = est - theta0(i, h + 1);
             bias(e, i, h) = mean(err);
-            rmse(e, i, h) = sqrt(mean(err.^2));
+            vari(e, i, h) = mean((est - mean(est)).^2);   % 1/R convention
+            mse(e, i, h)  = mean(err.^2);
+            rmse(e, i, h) = sqrt(mse(e, i, h));
             l = squeeze(mc.lo(e, i, h + 1, :));
             u = squeeze(mc.hi(e, i, h + 1, :));
             cover(e, i, h) = mean(l <= theta0(i, h + 1) & ...
@@ -104,7 +138,33 @@ for e = 1:nE
         end
     end
 end
-irmse = mean(rmse, 3);                  % (nE x K)
+% Secondary (posterior-quantile) bands, where the Monte Carlo stored
+% them: the PRIMARY intervals are FMAR's quasi-Bayesian Newey-West
+% sandwich, and the gap between the two coverages is the empirical price
+% of that choice (docs/APPROXIMATIONS.md, item 3).
+cover_post = nan(nE, K, H);  alen_post = nan(nE, K, H);
+if isfield(mc, 'lo_post') && isfield(mc, 'hi_post')
+    for e = 1:nE
+        for i = 1:K
+            for h = 1:H
+                l = squeeze(mc.lo_post(e, i, h + 1, :));
+                u = squeeze(mc.hi_post(e, i, h + 1, :));
+                if all(isnan(l)), continue; end
+                cover_post(e, i, h) = mean(l <= theta0(i, h + 1) & ...
+                                           theta0(i, h + 1) <= u);
+                alen_post(e, i, h)  = mean(u - l);
+            end
+        end
+    end
+end
+
+% The decomposition MSE = bias^2 + variance is exact with the 1/R
+% variance convention; assert it rather than trusting it.
+decomp_err = max(abs(mse(:) - (bias(:).^2 + vari(:))));
+assert(decomp_err < 1e-8 * max(1, max(mse(:))), ...
+    'summarize_montecarlo: bias-variance decomposition off by %.3g.', decomp_err);
+
+irmse = mean(rmse, 3);                  % (nE x K), LEGACY h = 1..H
 
 % --- Block-scale summaries ---------------------------------------------
 tau_bar = mean(mc.tau_mean, 4);         % (K x G x H)
@@ -125,6 +185,21 @@ end
 if nargin < 2 || isempty(early_H)
     early_H = min(6, H);
 end
+
+% --- integrated metrics ------------------------------------------------
+if H >= 2
+    irmse_h2 = mean(rmse(:, :, 2:H), 3);
+    ibias_h2 = mean(abs(bias(:, :, 2:H)), 3);
+    ivar_h2  = mean(vari(:, :, 2:H), 3);
+else
+    irmse_h2 = nan(nE, K);  ibias_h2 = nan(nE, K);  ivar_h2 = nan(nE, K);
+end
+h_early = 2:min(early_H, H);
+h_late  = min(early_H, H) + 1:H;
+if isempty(h_early), irmse_early = nan(nE, K);
+else,                irmse_early = mean(rmse(:, :, h_early), 3); end
+if isempty(h_late),  irmse_late = nan(nE, K);
+else,                irmse_late = mean(rmse(:, :, h_late), 3); end
 win_eq  = zeros(K, R);   win_eqe = zeros(K, R);
 for r = 1:R
     for i = 1:K
@@ -169,7 +244,14 @@ s.est_names = mc.est_names;
 s.dgp_name  = mc.dgp_name;
 s.misspec_block = mc.misspec_block;
 s.bias = bias;  s.rmse = rmse;  s.coverage = cover;  s.avg_len = alen;
-s.irmse = irmse;
+s.variance = vari;  s.mse = mse;
+s.coverage_post = cover_post;   % posterior-quantile bands (NaN where absent)
+s.avg_len_post  = alen_post;
+s.irmse = irmse;                 % LEGACY   (h = 1..H)
+s.irmse_h2 = irmse_h2;           % PREFERRED (h = 2..H)
+s.irmse_early = irmse_early;     % h = 2..early_H
+s.irmse_late  = irmse_late;      % h = early_H+1..H
+s.ibias_h2 = ibias_h2;  s.ivar_h2 = ivar_h2;
 s.tau_bar = tau_bar;
 s.argmax_freq = argmax_freq;
 s.argmax_freq_by_eq = argmax_freq_by_eq;
@@ -179,4 +261,22 @@ s.mean_lag1_glob   = mean(mc.diag.lag1_glob);
 s.mean_lag1_block  = mean(mc.diag.lag1_block);
 s.mean_n_tau_clip  = mean(mc.diag.n_tau_clip);
 s.H = H;  s.K = K;  s.G = G;  s.R = R;
+
+% --- per-estimator tau diagnostics -------------------------------------
+% tau_diagnostics returns the full localisation / false-positive /
+% chain-diagnostic block for one set of scales; run it for every scale
+% estimator present in mc.
+s.tau_stats = struct();
+if isfield(mc, 'tau') && isstruct(mc.tau)
+    f = fieldnames(mc.tau);
+    for k = 1:numel(f)
+        s.tau_stats.(f{k}) = tau_diagnostics(mc, f{k}, early_H);
+    end
+elseif isfield(mc, 'tau_mean')
+    s.tau_stats.block = tau_diagnostics(mc, 'block', early_H);
+end
+
+if isfield(mc, 'meta'), s.meta = mc.meta; end
+if isfield(mc, 'dgp_params'), s.dgp_params = mc.dgp_params; end
+if isfield(mc, 'description'), s.description = mc.description; end
 end

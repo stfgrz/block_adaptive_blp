@@ -47,8 +47,12 @@ colors = [0.85 0.33 0.10;   % 1 orange-red
           0.00 0.45 0.74;   % 2 blue
           0.47 0.67 0.19;   % 3 green
           0.49 0.18 0.56;   % 4 purple
-          0.30 0.75 0.93];  % 5 cyan
+          0.30 0.75 0.93;   % 5 cyan
+          0.64 0.08 0.18];  % 6 dark red
 band_fade = 0.80;           % 0 = full colour, 1 = white
+% Wrap rather than index past the end: the stack grew from four
+% estimators to five (the horizon-pooled BLP) and may grow again.
+cidx = @(e) colors(mod(e - 1, size(colors, 1)) + 1, :);
 
 fig = figure('Name', ttl, 'Color', 'w', 'Position', [80 80 380*K 340]);
 for i = 1:K
@@ -63,7 +67,7 @@ for i = 1:K
            isfield(est, 'lo') && ~isempty(est.lo)
             ok = isfinite(est.lo(i, :)) & isfinite(est.hi(i, :));
             hh = hgrid(ok);
-            cb = colors(e, :) * (1 - band_fade) + band_fade;
+            cb = cidx(e) * (1 - band_fade) + band_fade;
             fill([hh, fliplr(hh)], ...
                  [est.lo(i, ok), fliplr(est.hi(i, ok))], cb, ...
                  'EdgeColor', 'none');
@@ -76,7 +80,7 @@ for i = 1:K
     end
     for e = 1:numel(est_list)
         hnd(end + 1) = plot(hgrid, est_list{e}.theta(i, :), '-', ...
-             'Color', colors(e, :), 'LineWidth', 1.4);
+             'Color', cidx(e), 'LineWidth', 1.4);
         labels{end + 1} = est_list{e}.name;
     end
     plot(hgrid, zeros(size(hgrid)), 'k:', 'LineWidth', 0.5);

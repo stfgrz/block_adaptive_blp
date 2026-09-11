@@ -44,7 +44,28 @@ function ds = assemble_dataset(opts)
 %   ds.Y (T x 5), ds.varnames, ds.ym (T x 1), ds.isrw (1 x 5) = [0 1 1 1 1]
 %   (white-noise prior mean for the surprise, random-walk for the levels --
 %   requires the vectorised isrw patch in estimate_bvar_niw, see
-%   README_EMPIRICAL.md), ds.shock_variant, ds.meta.
+%   README_EMPIRICAL.md), ds.shock_variant, ds.meta, and
+%   ds.synthetic = false.  ds.meta.sources records, for each raw csv, the
+%   series identifier and download URL written by fetch_outcome_data, so
+%   a saved dataset always names its own inputs.
+%
+% REQUIRED INPUTS (nothing here downloads anything)
+% -------------------------------------------------
+%   1. empirical/data/derived/shocks_monthly.mat
+%      built by build_shock_series() from empirical/data/raw/ea_empd_events.csv
+%      (the EA-EMPD event file, which ships with the repository).
+%   2. FOUR raw csv files in empirical/data/raw/, each SDMX-CSV with
+%      TIME_PERIOD and OBS_VALUE columns and each covering the whole
+%      requested window:
+%        ip_ea.csv      Eurostat sts_inpr_m  M.PRD.B-D.SCA.I21.EA20
+%        hicp_ea.csv    Eurostat prc_hicp_midx  M.I15.CP00.EA
+%        rate1y_ea.csv  ECB FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA
+%        stoxx50_ea.csv ECB FM.M.U2.EUR.DS.EI.DJES50I.HSTA
+%      fetch_outcome_data() downloads and validates these, and prints the
+%      exact manual route for any it cannot reach.  They are NOT in the
+%      repository (licensing and size), so a clean clone must run
+%      fetch_outcome_data (or place the files by hand) before this
+%      function will do anything at all.
 %
 % DIAGNOSTICS PRINTED
 % -------------------
@@ -92,6 +113,8 @@ T   = numel(ym);
 [ym_pi, v_pi] = load_outcome(opts, 'hicp_ea.csv',    ym0, ym1);
 [ym_r,  v_r ] = load_outcome(opts, 'rate1y_ea.csv',  ym0, ym1);
 [ym_sx, v_sx] = load_outcome(opts, 'stoxx50_ea.csv', ym0, ym1);
+sources = collect_provenance(opts.raw_dir, ...
+    {'ip_ea.csv', 'hicp_ea.csv', 'rate1y_ea.csv', 'stoxx50_ea.csv'});
 
 Y = nan(T, 5);
 Y(:, 1) = pick(S.ym, S.(opts.shock_variant), ym) / 100;   % bp -> pp
@@ -112,6 +135,11 @@ ds.ym = ym;
 ds.isrw = [0 1 1 1 1];
 ds.shock_variant = opts.shock_variant;
 ds.meta = opts;
+ds.meta.sources = sources;      % which raw series each column came from
+ds.meta.built_at = datestr(now, 'yyyy-mm-dd HH:MM:SS');  %#ok<TNOW1,DATST>
+ds.synthetic = false;           % real data; see empirical/tests/ for the
+                                % clearly-labelled synthetic fixture used
+                                % by the interface smoke test
 
 % --- diagnostics ------------------------------------------------------------
 fprintf('assemble_dataset: T = %d months (%d-%02d to %d-%02d), K = 5, variant = %s\n', ...
@@ -153,6 +181,30 @@ fprintf('assemble_dataset: saved %s\n', out);
 end
 
 % -------------------------------------------------------------------------
+function src = collect_provenance(raw_dir, files)
+% Read the <file>.source.txt sidecars written by fetch_outcome_data.
+% Missing sidecars are recorded as 'unrecorded' rather than being an
+% error: a hand-placed file is legitimate, it just has no provenance.
+src = struct();
+for k = 1:numel(files)
+    fld = strrep(strrep(files{k}, '.csv', ''), '.', '_');
+    sfile = fullfile(raw_dir, [files{k} '.source.txt']);
+    if exist(sfile, 'file') == 2
+        fid = fopen(sfile, 'r');
+        txt = '';
+        while true
+            l = fgetl(fid);
+            if ~ischar(l), break; end
+            if isempty(txt), txt = l; else, txt = [txt ' | ' l]; end  %#ok<AGROW>
+        end
+        fclose(fid);
+        src.(fld) = txt;
+    else
+        src.(fld) = 'unrecorded (file placed manually)';
+    end
+end
+end
+
 function s = set_default(s, f, v)
 if ~isfield(s, f) || isempty(s.(f)), s.(f) = v; end
 end
@@ -185,6 +237,7 @@ if ~chk.ok
         advice = [advice ' Pass opts.skip_plausibility = true only if you have inspected the series and decided the fingerprint is a false alarm.'];
     end
     error('%s\n%s', msg, advice);
+end
 end
 
 function v = pick(ym_src, val_src, ym_want)

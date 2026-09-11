@@ -38,7 +38,9 @@ function dgp = simulate_sparse_misspec_dgp(cfg)
 % OUTPUTS
 % -------
 % dgp : struct with the same fields as simulate_var_dgp.m, plus
-%   .misspec_block = 1 (index of the truly misspecified block).
+%   .misspec_block = 1 (index of the truly misspecified block) -- but []
+%   when cfg.p >= 3, because a fitted VAR(3) or deeper NESTS this truth
+%   and nothing is then misspecified; see the code comment below.
 %   The true IRF is ANALYTIC (the truth is itself a finite-order VAR),
 %   computed by compute_true_irf -- never by an estimator.
 %
@@ -48,7 +50,11 @@ function dgp = simulate_sparse_misspec_dgp(cfg)
 %
 % NOTES
 % -----
-% a31 = -0.30 keeps max |companion eigenvalue| well below 0.95 (about
+% a31 is read from cfg.dgp.sparse_a31 (default -0.30) so the Monte Carlo
+% grid can vary the MISSPECIFICATION STRENGTH; a31 = 0 switches the
+% misspecification off entirely and the DGP then coincides with
+% simulate_var_dgp (dgp.misspec_block is set to [] in that case).
+% The default a31 = -0.30 keeps max |companion eigenvalue| below 0.95 (about
 % 0.82) while producing a population VAR(2)-prior bias for the y_3
 % response of roughly 0.2 -- large relative to single-sample estimation
 % noise at T = 200 (roughly 0.05-0.10), so the misspecification is
@@ -62,7 +68,7 @@ assert(cfg.K == 3, ...
 
 base = base_var2_parameters();          % same A1, A2, c, B0 as DGP 1
 
-a31 = -0.30;                            % the single misspecified entry
+a31 = dgp_param(cfg, 'sparse_a31', -0.30);   % the single misspecified entry
 A3  = zeros(3);
 A3(3, 1) = a31;
 % --- alternative weak-signal design (kept for comparison): ----------
@@ -81,7 +87,28 @@ dgp.M             = [];
 dgp.c             = base.c;
 dgp.Sigma         = base.B0 * base.B0';
 dgp.B0            = base.B0;
-dgp.misspec_block = 1;
+% WHICH BLOCK IS "TRULY MISSPECIFIED" DEPENDS ON THE FITTED LAG ORDER.
+% The truth is a VAR(3).  A fitted VAR(p) with p >= 3 CONTAINS it, so the
+% prior centre is correct and there is nothing for the adaptive layer to
+% find: any escape in that case is a false positive, exactly like on the
+% correct DGP.  Reporting misspec_block = 1 there would let the
+% diagnostics score a detection rate against a block that is not wrong,
+% which is precisely the mistake the p = 3 and p = 4 grid cells exist to
+% expose.  The field is therefore [] whenever the fitted model nests the
+% truth, or when the misspecification is switched off (a31 = 0).
+if a31 == 0 || cfg.p >= 3
+    dgp.misspec_block = [];
+else
+    dgp.misspec_block = 1;
+end
+dgp.fitted_p_nests_truth = (cfg.p >= 3);
+% Is the FITTED model misspecified at all?  Not the same question as
+% "is there a unique block to find": the dense DGP is misspecified with
+% no unique block, and this design with a31 = 0 or p >= 3 has a unique
+% block name but nothing wrong.  Both facts are recorded separately so a
+% flag rate can be labelled correctly.
+dgp.is_misspecified = (a31 ~= 0) && ~dgp.fitted_p_nests_truth;
+dgp.params        = struct('sparse_a31', a31);
 dgp.description   = sprintf(['True VAR(3): baseline VAR(2) plus an omitted ' ...
     'delayed effect of the shock variable on y_3 (A3(3,1) = %.2f). ' ...
     'Fitted VAR(2) prior is misspecified mainly in the "lags of ' ...
@@ -92,6 +119,17 @@ dgp.theta_true   = compute_true_irf(dgp, cfg, 'analytic');
 end
 
 % =====================================================================
+function v = dgp_param(cfg, name, default)
+% Read cfg.dgp.<name> if present, otherwise the documented default, so
+% configuration structs written before cfg.dgp existed still reproduce
+% the original design exactly.
+v = default;
+if isfield(cfg, 'dgp') && isstruct(cfg.dgp) && isfield(cfg.dgp, name) ...
+        && ~isempty(cfg.dgp.(name))
+    v = cfg.dgp.(name);
+end
+end
+
 function base = base_var2_parameters()
 % Baseline VAR(2) parameters, identical to those in simulate_var_dgp.m.
 % Duplicated deliberately in a single local function per DGP file so
