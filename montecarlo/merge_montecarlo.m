@@ -54,18 +54,19 @@ for c = 1:numel(chunks)
                'saved merged result.'], c);
     end
 end
+% --- the chunks must come from the SAME design ------------------------
+% Checking only the top-level fields is not enough.  theta_true is a
+% function of the DGP parameters and H alone, so two chunks run at
+% DIFFERENT T (or p, or chain length) agree on every one of them and
+% would merge into a result that looks valid and is not.  Compare the
+% full design record instead, and name the field that differs.
 key = {'dgp_name', 'est_names', 'theta_true', 'misspec_block'};
 for c = 2:numel(chunks)
     for k = 1:numel(key)
         assert(isequaln(ref.(key{k}), chunks{c}.(key{k})), ...
             'merge_montecarlo: chunks disagree on %s.', key{k});
     end
-    assert(ref.meta.master_seed == chunks{c}.meta.master_seed, ...
-        'merge_montecarlo: chunks used different master seeds.');
-    assert(ref.meta.R == chunks{c}.meta.R, ...
-        'merge_montecarlo: chunks belong to designs with different R.');
-    assert(strcmp(ref.meta.mode, chunks{c}.meta.mode), ...
-        'merge_montecarlo: chunks used different modes.');
+    assert_same_design(ref.meta, chunks{c}.meta, c);
 end
 
 % --- replication bookkeeping -------------------------------------------
@@ -167,6 +168,51 @@ mc.meta.seeds = mc.seeds(:)';
 end
 
 % =====================================================================
+function assert_same_design(m1, m2, c)
+% Every field of mc.meta that DESCRIBES THE DESIGN must agree; the
+% fields that legitimately differ between chunks (which replications
+% each ran, how long it took, when it was created) are excluded by
+% name.  Nested structs (fmar settings, pooling settings, DGP
+% parameters) are compared whole.
+per_chunk = {'rep_index', 'seeds', 'R_done', 'is_complete', ...
+             'elapsed_seconds', 'created', 'merged_from', ...
+             'tau_quantiles_compacted'};
+f = union(fieldnames(m1), fieldnames(m2));
+for k = 1:numel(f)
+    name = f{k};
+    if any(strcmp(name, per_chunk)), continue; end
+    has1 = isfield(m1, name);  has2 = isfield(m2, name);
+    assert(has1 == has2, ...
+        ['merge_montecarlo: chunk %d disagrees on the design -- ' ...
+         'meta.%s is present in one chunk and not the other.'], c, name);
+    if ~has1, continue; end
+    v1 = m1.(name);  v2 = m2.(name);
+    if isa(v1, 'function_handle') || isa(v2, 'function_handle')
+        continue        % handles never compare equal; cfg_to_savable strips them
+    end
+    assert(isequaln(v1, v2), ...
+        ['merge_montecarlo: chunk %d belongs to a DIFFERENT design -- ' ...
+         'meta.%s differs (%s vs %s).  Merging chunks from different ' ...
+         'designs would silently produce a result that looks valid and ' ...
+         'is not.'], c, name, describe(v1), describe(v2));
+end
+end
+
+function s = describe(v)
+% Short, safe rendering of a meta value for an error message.
+if ischar(v)
+    s = v;
+elseif iscellstr(v)  %#ok<ISCLSTR>
+    s = strjoin(v(:)', ',');
+elseif (isnumeric(v) || islogical(v)) && numel(v) <= 8
+    s = mat2str(double(v));
+elseif isnumeric(v) || islogical(v)
+    s = sprintf('<%s %s>', mat2str(size(v)), class(v));
+else
+    s = sprintf('<%s>', class(v));
+end
+end
+
 function A = cat_reps(chunks, field, order)
 A = [];
 nd = ndims(chunks{1}.(field));

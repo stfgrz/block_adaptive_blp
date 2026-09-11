@@ -192,7 +192,12 @@ for i = 1:numel(spec)
             fprintf('fetch_outcome_data: %-14s OK, %d obs %s..%s (roughness %.2f)\n', ...
                     spec(i).file, chk.n_obs, ym_str(chk.ym0), ym_str(chk.ym1), ...
                     chk.roughness);
-            write_provenance(fpath, spec(i), '(pre-existing local file; source not recorded by this run)');
+            % Do NOT overwrite provenance recorded by an earlier fetch:
+            % the note below is generic, and replacing a real source URL
+            % with it would quietly destroy the record of where the file
+            % came from.  Written only when no sidecar exists yet.
+            ea_write_provenance(fpath, spec(i).series, ...
+                '(pre-existing local file; source not recorded by this run)', false);
             continue
         end
         rej = fullfile(opts.raw_dir, 'rejected');
@@ -225,7 +230,7 @@ for i = 1:numel(spec)
             end
             fprintf('fetch_outcome_data: downloaded %-14s %d obs %s..%s\n', ...
                     spec(i).file, chk.n_obs, ym_str(chk.ym0), ym_str(chk.ym1));
-            write_provenance(fpath, spec(i), spec(i).urls{u});
+            ea_write_provenance(fpath, spec(i).series, spec(i).urls{u}, true);
             got = true;
             break
         catch
@@ -276,23 +281,6 @@ if opts.skip_plausibility
     chk.ok = isempty(keep);
 end
 good = chk.ok;
-end
-
-function write_provenance(fpath, sp, url)
-% Record, next to every accepted raw file, WHICH series it is and where
-% it came from.  assemble_dataset copies these lines into the dataset's
-% metadata, so a stored result always names its inputs.
-try
-    fid = fopen([fpath '.source.txt'], 'w');
-    if fid <= 0, return; end
-    fprintf(fid, 'file        = %s\n', sp.file);
-    fprintf(fid, 'series      = %s\n', sp.series);
-    fprintf(fid, 'source_url  = %s\n', url);
-    fprintf(fid, 'recorded_at = %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));  %#ok<TNOW1,DATST>
-    fclose(fid);
-catch
-    % Provenance is a convenience, never a reason to fail a fetch.
-end
 end
 
 function s = ym_str(v)

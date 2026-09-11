@@ -39,7 +39,7 @@ P = ea_paths();
 fns = {'ea_paths', 'read_sdmx_csv', 'ea_check_series', 'ea_extract_series', ...
        'build_shock_series', 'fetch_outcome_data', 'assemble_dataset', ...
        'estimate_lp_lagaug', 'simulate_fitted_bvar_dgp', ...
-       'make_synthetic_fixture'};
+       'make_synthetic_fixture', 'ea_write_provenance'};
 for k = 1:numel(fns)
     assert(exist(fns{k}, 'file') == 2, 'missing empirical function %s', fns{k});
     n = nargin(fns{k});     % throws on a parse error
@@ -129,6 +129,40 @@ assert(isfield(sim, 'theta') && isequal(size(sim.theta), [K, cfg.H + 1]), ...
     'simulate_fitted_bvar_dgp did not pass through the under-null IRF');
 fprintf(['  five estimators + the null-calibration DGP run on the K = 5 ' ...
          'fixture: OK\n']);
+
+% --- 4b. provenance is recorded, and never silently destroyed -----------
+% fetch_outcome_data writes a sidecar in two situations: after a download
+% (it knows the URL) and after validating a file that was already there
+% (all it can say is "not recorded by this run").  The second must NOT
+% overwrite the first, or re-running the fetch would quietly erase where
+% the data came from.
+pdir = fullfile(tempdir, sprintf('ea_prov_%d', round(rand * 1e6)));
+mkdir(pdir);
+praw = fullfile(pdir, 'ip_ea.csv');
+fid = fopen(praw, 'w');  fprintf(fid, 'TIME_PERIOD,OBS_VALUE\n2000-01,100\n');  fclose(fid);
+
+w1 = ea_write_provenance(praw, 'TEST series', 'https://real.example/download', true);
+assert(w1, 'the first provenance write did not happen');
+first = fileread([praw '.source.txt']);
+assert(~isempty(strfind(first, 'https://real.example/download')), ...
+    'the recorded URL is missing from the sidecar');
+
+w2 = ea_write_provenance(praw, 'TEST series', '(pre-existing local file)', false);
+assert(~w2, 'a non-overwriting write reported that it wrote');
+assert(strcmp(fileread([praw '.source.txt']), first), ...
+    'an existing sidecar was overwritten by the non-overwriting path');
+
+w3 = ea_write_provenance(praw, 'TEST series', 'https://other.example/new', true);
+assert(w3 && ~isempty(strfind(fileread([praw '.source.txt']), 'other.example')), ...
+    'an overwriting write did not replace the sidecar');
+
+% ...and with no sidecar yet, the non-overwriting path does write one.
+delete([praw '.source.txt']);
+w4 = ea_write_provenance(praw, 'TEST series', '(pre-existing local file)', false);
+assert(w4 && exist([praw '.source.txt'], 'file') == 2, ...
+    'no sidecar was written when none existed');
+rmdir(pdir, 's');
+fprintf('  provenance: recorded on download, preserved on re-validation: OK\n');
 
 % --- 5. the synthetic guard ----------------------------------------------
 guarded = {fullfile(P.empirical, 'RUN_EMPIRICAL.m'), ...

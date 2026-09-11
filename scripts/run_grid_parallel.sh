@@ -21,7 +21,15 @@ echo "experiment grid: $NCELL cells over $NPROC workers; logs in $LOGDIR"
 for ((w = 0; w < NPROC; w++)); do
   IDX=""
   for ((k = w + 1; k <= NCELL; k += NPROC)); do IDX="$IDX $k"; done
-  IDX="[$(echo $IDX | tr ' ' ',')]"
+  # A worker with no assigned cells must NOT be launched: passing [] to
+  # run_experiment_grid means "every cell", so an extra worker would
+  # silently re-run the whole grid and overwrite the others' output.
+  if [ -z "$IDX" ]; then
+    echo "worker $w: no cells assigned ($NPROC workers for $NCELL cells); skipping"
+    continue
+  fi
+  IDX="[$(echo "$IDX" | tr ' ' ',')]"
+  echo "worker $w: cells $IDX"
   ( octave-cli --no-gui --quiet --eval \
       "addpath(genpath('$ROOT')); run_experiment_grid($IDX);" \
       > "$LOGDIR/worker_$w.log" 2>&1 ) &

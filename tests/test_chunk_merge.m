@@ -112,7 +112,44 @@ catch
     threw = true;
 end
 assert(threw, 'chunks from different designs were merged');
-fprintf('  overlapping chunks and mismatched designs both refused: OK\n');
+
+% A design difference that leaves theta_true UNCHANGED is the dangerous
+% case: theta_true depends on the DGP parameters and H, not on T or p or
+% the chain length, so chunks run at different T agree on every
+% top-level field and would merge into a result that looks valid and is
+% not.  Each of these must be refused, by name.
+for v = {'T', 'p', 'gibbs_keep'}
+    c_diff = cfg;  c_diff.mc.rep_range = [3 4];
+    switch v{1}
+        case 'T',          c_diff.T = cfg.T + 40;
+        case 'p',          c_diff.p = cfg.p + 1;
+        case 'gibbs_keep', c_diff.mc.gibbs_n_keep = cfg.mc.gibbs_n_keep * 2;
+    end
+    alt = run_montecarlo(c_diff, 'sparse');
+    assert(isequaln(alt.theta_true, ch{1}.theta_true) || ~strcmp(v{1}, 'T'), ...
+        'the T variation was supposed to leave theta_true unchanged');
+    threw = false;  msg = '';
+    try
+        merge_montecarlo({ch{1}, alt});
+    catch err
+        threw = true;  msg = err.message;
+    end
+    assert(threw, ...
+        ['chunks differing in %s were merged; theta_true is identical ' ...
+         'there, so only a full design check catches it'], v{1});
+    % T and the chain length leave EVERY top-level field identical, so
+    % only the meta comparison can catch them -- require that specific
+    % error.  A different p also changes misspec_block (a fitted VAR(3)
+    % nests the sparse truth), so it is legitimately caught earlier; all
+    % that matters there is the refusal.
+    if ~strcmp(v{1}, 'p')
+        assert(~isempty(strfind(msg, 'DIFFERENT design')), ...
+            ['a %s mismatch must be caught by the design comparison, ' ...
+             'not incidentally; got: %s'], v{1}, msg);
+    end
+end
+fprintf(['  refused: overlapping chunks, a different seed, and T / p / chain-length\n' ...
+         '           mismatches that leave theta_true identical: OK\n']);
 
 % --- 3b. a compacted result cannot be re-merged --------------------------
 comp = compact_mc(ch{1});
