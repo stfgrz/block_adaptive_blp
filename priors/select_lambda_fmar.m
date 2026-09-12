@@ -40,8 +40,20 @@ function [lambda_star, betahat, sigmahat, info] = ...
 % fixed, alpha inactive, sur = noc = 0), a one-dimensional GOLDEN-
 % SECTION search on log(lambda) over [1e-4, 5] (the FMAR bounds) is
 % used instead: derivative-free, deterministic, and transparent.  The
-% objective is smooth and, in all cases inspected, unimodal on this
-% interval; a coarse pre-grid guards against a bad bracket.
+% objective is smooth and, on every simulated design, unimodal on this
+% interval; a coarse pre-grid brackets the maximum.
+%
+% MULTIMODALITY IS DETECTED AND REPORTED.  On the euro-area data the
+% objective is BIMODAL at long horizons under the published prior scale
+% (one mode near 0.01, one near 0.4, of almost equal height), and a
+% global search then flips between them from one horizon to the next --
+% which is visible downstream as a stripe in the tau surface.  The
+% number of local maxima on the pre-grid is therefore returned in
+% info.n_local_max, and estimate_blp_fmar counts the horizons at which
+% it exceeds one (blp.diag.lambda_multimodal).  The remedy that removes
+% the bimodality on that dataset is the prior-scale floor documented in
+% priors/fmar_prior_scale.m; the selector itself still returns the
+% global maximum of the pre-grid-refined search.
 %
 % INPUTS
 % ------
@@ -58,7 +70,10 @@ function [lambda_star, betahat, sigmahat, info] = ...
 % lambda_star : maximiser of Q.
 % betahat     : (k x K) posterior mean at lambda_star.
 % sigmahat    : (K x K) posterior mode of Sigma at lambda_star.
-% info        : struct (.Q_star, .n_eval, .at_bound flag).
+% info        : struct (.Q_star, .n_eval, .at_bound flag, .n_local_max =
+%               number of local maxima of the objective on the 25-point
+%               pre-grid in log(lambda), .grid_lambda / .grid_Q = that
+%               grid and the objective on it, for inspection).
 %
 % DIMENSIONS
 % ----------
@@ -127,4 +142,13 @@ lambda_star = exp(loglam_star);
 info.Q_star  = objective(loglam_star);
 info.n_eval  = n_eval;
 info.at_bound = (abs(loglam_star - lo) < 1e-3) || (abs(loglam_star - hi) < 1e-3);
+% Local maxima of the objective on the pre-grid (interior points that
+% beat both neighbours, plus an end point that beats its one neighbour).
+is_lm = false(n_grid, 1);
+is_lm(2:end-1) = Qg(2:end-1) > Qg(1:end-2) & Qg(2:end-1) > Qg(3:end);
+is_lm(1)   = Qg(1) > Qg(2);
+is_lm(end) = Qg(end) > Qg(end-1);
+info.n_local_max = sum(is_lm);
+info.grid_lambda = exp(grid(:));
+info.grid_Q      = Qg(:);
 end

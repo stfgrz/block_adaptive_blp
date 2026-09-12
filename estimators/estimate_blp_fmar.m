@@ -100,6 +100,7 @@ zcrit = normal_quantile(1 - (1 - cfg.ci_level) / 2);
 b1n = bvar.b1n;
 m = 1 + K * p;
 h1_mode = fmar_h1_mode(cfg);
+psi_floor = fmar_psi_floor(cfg);        % default false = published scale
 
 % --- detrend and build shared regressors -------------------------------
 dt = var_deterministic_trend(Y, bvar.B, p);
@@ -113,6 +114,9 @@ lo = nan(K, H + 1);  hi = nan(K, H + 1);
 lambda_used = zeros(K, H);
 prior_theta = zeros(K, H + 1);
 n_at_bound = 0;
+n_local_max = zeros(1, H);              % modes of the lambda objective per h
+n_floor     = zeros(1, H);              % variables whose psi was floored per h
+beta_all    = nan(m, K, H);             % posterior-mean coefficients, (regressor x equation x h)
 
 % --- h = 0: shared identification step ---------------------------------
 theta(:, 1) = bvar.theta(:, 1);   lo(:, 1) = bvar.theta_lo(:, 1);   hi(:, 1) = bvar.theta_hi(:, 1);
@@ -146,12 +150,15 @@ for h = h_start:H
     prior_theta(:, h + 1) = b_center(2:1 + K, :)' * b1n;
 
     % prior scales and tightness
-    psi_h = fmar_prior_scale(x, p, h);
+    [psi_h, pinfo] = fmar_prior_scale(x, p, h, psi_floor);
     [lam, Bhat, ~, info] = select_lambda_fmar(Yh, Zh, b_center, psi_h, h, cfg);
     lambda_used(:, h) = lam;
     n_at_bound = n_at_bound + info.at_bound;
+    n_local_max(h) = info.n_local_max;
+    n_floor(h) = sum(pinfo.floor_bound);
 
     theta(:, h + 1) = Bhat(2:1 + K, :)' * b1n;
+    beta_all(:, :, h) = Bhat;
 
     % FMAR quasi-Bayesian bands: NW sandwich at the posterior mean
     Uh = Yh - Zh * Bhat;
@@ -179,11 +186,30 @@ blp.lo          = lo;
 blp.hi          = hi;
 blp.lambda      = lambda_used;
 blp.prior_theta = prior_theta;
+blp.beta_mean   = beta_all;             % (m x K x H); NaN at h = 1 under 'bvar'
 blp.diag.lambda_at_bound = n_at_bound;
 blp.diag.h1_mode = h1_mode;
 blp.diag.h_start = h_start;
+% Horizons at which the lambda objective had more than one local maximum
+% on the selector's pre-grid: a warning sign that the selected lambda_h
+% path may flip between modes (see priors/select_lambda_fmar.m).
+blp.diag.n_local_max = n_local_max;
+blp.diag.lambda_multimodal = sum(n_local_max > 1);
+blp.diag.psi_floor = psi_floor;
+blp.diag.psi_floor_bound = n_floor;     % (1 x H) count of floored variables
 
 assert(all(isfinite(theta(:))), 'estimate_blp_fmar: non-finite estimates.');
+end
+
+% =====================================================================
+function tf = fmar_psi_floor(cfg)
+% Resolve cfg.fmar.psi_floor, defaulting to false (the published FMAR
+% prior scale) so every earlier configuration keeps its exact behaviour.
+tf = false;
+if isfield(cfg, 'fmar') && isstruct(cfg.fmar) && ...
+        isfield(cfg.fmar, 'psi_floor') && ~isempty(cfg.fmar.psi_floor)
+    tf = logical(cfg.fmar.psi_floor);
+end
 end
 
 % =====================================================================

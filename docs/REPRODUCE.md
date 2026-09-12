@@ -19,7 +19,7 @@ cd tests
 run_all_tests
 ```
 
-About 25 minutes. `test_fmar_port` is skipped unless `FMAR_PATH` points
+About 12 minutes in MATLAB (25 in Octave); 17 tests. `test_fmar_port` is skipped unless `FMAR_PATH` points
 at the `demo_IRFs` folder of the FMAR replication package.
 
 ---
@@ -36,6 +36,14 @@ RUN_ME_FIRST                       % the original prototype stack, unchanged
 scales `tau` under both adaptive estimators, the exact `tau = 1` nesting
 check, and (with `cfg.demo.run_montecarlo = true`) a small Monte Carlo
 report.
+
+**Side effect.** Both demonstrations write into `results/`: `RUN_ME_FIRST`
+overwrites `mc_sparse.mat` and `fig1`–`fig5`, `RUN_FMAR_DEMO` overwrites
+`mc_fmar_{sparse,correct}.mat`, `fig_fmar_irf_sparse.png` and writes
+`mc_fmar_*` CSVs. Those `.mat`/`.png` files are tracked as the earliest
+baselines, so after a demo run restore them with
+`git checkout -- results/mc_fmar_*.mat results/mc_sparse.mat results/fig*.png`
+and delete the CSVs, unless you mean to replace them.
 
 ---
 
@@ -166,17 +174,37 @@ the adaptive point estimates.
 
 ## 6. Chapter 7 empirical pipeline
 
-The four outcome series are licensed and are **not** in the repository.
+The four outcome series are third-party data and are **not** in the
+repository (they are on the author's machine, gitignored).
 
 ```matlab
 build_shock_series();      % EA-EMPD events -> monthly surprises (ships with the repo)
 fetch_outcome_data();      % downloads and VALIDATES the four series
-assemble_dataset();        % -> empirical/data/ea_dataset.mat
-SMOKE_TEST_EMPIRICAL       % interface check on the real dataset
-RUN_EMPIRICAL              % the multi-hour job
+assemble_dataset();        % -> empirical/data/ea_dataset.mat  (seconds)
+SMOKE_TEST_EMPIRICAL       % interface check on the real dataset (2 s)
+RUN_EMPIRICAL              % steps A-F, about 4 minutes in MATLAB at p = 12, H = 48
+                           % (PSI_FLOOR = false / INSTR_FIXED = false select the
+                           %  _nofloor / _allblocks variants)
 ```
 
-Without the licensed data, the package is still testable:
+The null calibrations (MATLAB, about 10 s per replication at `p = 12`):
+
+```matlab
+run_null_calibration(struct('null', struct('n_rep', 500)));                 % ~85 min
+run_null_calibration(struct('p', 2, 'null', struct('n_rep', 200)));
+run_null_calibration(struct('p', 6, 'null', struct('n_rep', 200)));
+run_null_calibration(struct('null', struct('n_rep', 200, 'fixed_tau', [], ...
+    'stem', 'p12_levels', ...
+    'dataset', fullfile(ea_paths().data, 'ea_dataset_levels.mat'))));
+DO_A = false; DO_B = false; DO_D = false; RUN_EMPIRICAL   % protocol tables
+```
+
+Outputs: `results/empirical_<tag>.mat`, `tau_heatmap_<tag>.csv`,
+`dose_response_<tag>.*`, `tau_jk_comparison_<tag>.csv`,
+`coherence_<tag>.csv`, `tau_protocol_<tag>.csv`, `null_calibration_*.mat`,
+`null_thresholds_*.csv`, and the level-system files `*_levels_*`.
+
+Without the data, the package is still testable:
 
 ```matlab
 test_empirical_pipeline    % parses, builds shocks, runs all five

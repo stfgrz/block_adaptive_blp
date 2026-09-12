@@ -133,6 +133,12 @@ function out = gibbs_block_pooled_horizons(hdata, prior, opts)
 %                           out.proj_draws(:, h) = beta_h' * proj per
 %                           draw (used for IRF draws without storing the
 %                           full beta path).
+%   .fixed_blocks         : OPTIONAL block indices whose log tau path is
+%                           HELD AT 0 (tau = 1, the global prior) at every
+%                           horizon; the other blocks are sampled.  Same
+%                           purpose as in gibbs_block_horseshoe.m (a block
+%                           that violates the common-scale assumption,
+%                           such as a white-noise instrument's lag block).
 %   .seed                 : OPTIONAL; rng(opts.seed) is set here.
 %
 % OUTPUTS
@@ -187,7 +193,15 @@ opts = set_default(opts, 'x_min',     -11.5);   % tau  ~ 1e-5
 opts = set_default(opts, 'x_max',       9.2);   % tau  ~ 1e4
 opts = set_default(opts, 'sample_tau', true);
 opts = set_default(opts, 'proj',       []);
+opts = set_default(opts, 'fixed_blocks', []);
 phi  = opts.phi;
+free_block = true(G, 1);
+if ~isempty(opts.fixed_blocks)
+    fb = opts.fixed_blocks(:)';
+    assert(all(fb >= 1 & fb <= G & fb == round(fb)), ...
+        'gibbs_block_pooled_horizons: opts.fixed_blocks must index blocks 1..%d.', G);
+    free_block(fb) = false;
+end
 
 is_int = (prior.block_id == 0);
 blk    = max(prior.block_id, 1);        % index into tau for every column
@@ -315,6 +329,7 @@ for it = 1:n_total
                 lp_p = site_logpost(xp, idx, x, p_g_vec, S(:, idx), ...
                                     lam2r(:, idx), phi, kappa2, H);
                 acc = log(rand(G, numel(idx))) < (lp_p - lp_c);
+                acc(~free_block, :) = false;          % held blocks never move
                 xc(acc) = xp(acc);
                 x(:, idx) = xc;
                 n_try(:, idx) = n_try(:, idx) + 1;
@@ -331,7 +346,7 @@ for it = 1:n_total
             ok = all(xnew >= opts.x_min, 2) & all(xnew <= opts.x_max, 2);
             lp_c = path_logpost(x,    p_g_vec, S, lam2r, phi, kappa2);
             lp_p = path_logpost(xnew, p_g_vec, S, lam2r, phi, kappa2);
-            accL = ok & (log(rand(G, 1)) < (lp_p - lp_c));
+            accL = ok & (log(rand(G, 1)) < (lp_p - lp_c)) & free_block;
             x(accL, :) = xnew(accL, :);
             n_tryL = n_tryL + ok;
             n_accL = n_accL + accL;
@@ -351,13 +366,17 @@ for it = 1:n_total
             end
         end
         % Step-size adaptation during BURN-IN ONLY (kernel fixed after).
+        % Held blocks are excluded: their acceptance is zero by
+        % construction and must not shrink a step size.
         if it <= opts.n_burn && mod(it, 50) == 0
             acc = n_acc_burn ./ max(n_try_burn, 1);
-            step = step .* exp(0.5 * (acc - 0.30) / 0.30);
+            step(free_block, :) = step(free_block, :) .* ...
+                exp(0.5 * (acc(free_block, :) - 0.30) / 0.30);
             step = min(max(step, 0.02), 5);
             n_acc_burn(:) = 0;  n_try_burn(:) = 0;
             accL = n_accL_burn ./ max(n_tryL_burn, 1);
-            stepL = stepL .* exp(0.5 * (accL - 0.30) / 0.30);
+            stepL(free_block) = stepL(free_block) .* ...
+                exp(0.5 * (accL(free_block) - 0.30) / 0.30);
             stepL = min(max(stepL, 0.01), 5);
             n_accL_burn(:) = 0;  n_tryL_burn(:) = 0;
         end
@@ -413,6 +432,7 @@ out.proj_draws     = proj_draws;
 out.kappa_draws    = kap_draws;
 out.diag.acc_rate          = n_acc ./ max(n_try, 1);
 out.diag.acc_rate_level    = n_accL ./ max(n_tryL, 1);
+out.diag.free_block        = free_block;    % false = tau held at 1
 out.diag.lag1_acorr_logtau = lag1_x;
 out.diag.ess_logtau        = ess_x;
 out.diag.lag1_acorr_beta   = lag1_beta;

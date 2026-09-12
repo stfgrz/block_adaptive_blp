@@ -122,6 +122,15 @@ if isfield(cfg.blp, 'fix_tau') && ~isempty(cfg.blp.fix_tau)
     gopts.sample_tau = false;
     gopts.tau_fixed  = cfg.blp.fix_tau;
 end
+% Blocks held at tau = 1 while the others adapt (cfg.blocks.fixed_tau;
+% see default_config.m).  Empty = the original behaviour.
+fixed_tau_blocks = [];
+if isfield(cfg, 'blocks') && isfield(cfg.blocks, 'fixed_tau') && ~isempty(cfg.blocks.fixed_tau)
+    fixed_tau_blocks = cfg.blocks.fixed_tau(:)';
+    assert(all(fixed_tau_blocks >= 1 & fixed_tau_blocks <= G), ...
+        'estimate_blp_blockpooled: cfg.blocks.fixed_tau must index blocks 1..%d.', G);
+    gopts.fixed_blocks = fixed_tau_blocks;
+end
 if isfield(cfg.blp, 'tau_probs') && ~isempty(cfg.blp.tau_probs)
     tau_probs = cfg.blp.tau_probs;
 else
@@ -136,6 +145,10 @@ proj(2:1 + K) = b1n;
 gopts.proj = proj;
 
 % --- horizon-level objects shared across equations ----------------------
+% same optional prior-scale floor as estimate_blp_fmar (must be identical
+% in the three estimators for the tau = 1 nesting)
+psi_floor = isfield(cfg.fmar, 'psi_floor') && ~isempty(cfg.fmar.psi_floor) ...
+            && logical(cfg.fmar.psi_floor);
 J = [eye(K), zeros(K, K * (p - 1))];
 Zh_all = cell(1, H);  Yh_all = cell(1, H);  Mu_all = cell(1, H);
 psi_all = cell(1, H);  d_all = cell(1, H);  lam_all = zeros(K, H);
@@ -146,7 +159,7 @@ for h = 1:H
     Fh = bvar.F^h;
     Mu_all{h} = [zeros(1, K); (J * Fh)'];
     prior_theta(:, h + 1) = Mu_all{h}(2:1 + K, :)' * b1n;
-    psi_all{h} = fmar_prior_scale(x, p, h);
+    psi_all{h} = fmar_prior_scale(x, p, h, psi_floor);
     d = zeros(m, 1);
     d(1) = cfg.fmar.Vc;
     for lag = 1:p
@@ -178,6 +191,7 @@ theta_rb(:, 1) = b1n;  theta_dm(:, 1) = b1n;
 tau_mean = zeros(K, G, H);  tau_med = zeros(K, G, H);
 tau_q = zeros(K, G, H, nQ);  p_tau_gt1 = zeros(K, G, H);
 kappa_mean = zeros(K, G);
+beta_all = zeros(m, K, H);              % full posterior-mean coefficient vectors
 acc_rate = zeros(K, G, H);  acc_level = zeros(K, G);
 ess_logtau = zeros(K, G, H);
 lag1 = zeros(K, H);  ess_proj = zeros(K, H);  ess_rb = zeros(K, H);
@@ -214,6 +228,11 @@ for i = 1:K
         q = empirical_quantile(th, [alpha/2, 1 - alpha/2]);
         lo_post(i, h + 1) = q(1);  hi_post(i, h + 1) = q(2);
         theta_cond(i, h + 1) = proj' * out.beta_cond_mean(:, h);
+        if strcmp(point_mode, 'draw_mean')
+            beta_all(:, i, h) = out.beta_mean(:, h);
+        else
+            beta_all(:, i, h) = out.beta_rb_mean(:, h);
+        end
 
         tdr = sqrt(squeeze(out.tau2_draws(:, :, h)));      % (n_keep x G)
         if G == 1, tdr = tdr(:); end
@@ -272,9 +291,11 @@ blp.lo          = lo;          blp.hi      = hi;
 blp.lo_post     = lo_post;     blp.hi_post = hi_post;
 blp.lambda      = lam_all;
 blp.prior_theta = prior_theta;
+blp.beta_mean   = beta_all;             % (m x K x H) reported posterior-mean coefficients
 blp.tau_mean    = tau_mean;    blp.tau_med  = tau_med;
 blp.tau_q       = tau_q;       blp.tau_probs = tau_probs(:)';
 blp.p_tau_gt1   = p_tau_gt1;
+blp.fixed_tau_blocks = fixed_tau_blocks;   % blocks held at tau = 1 ([] = none)
 blp.kappa_mean  = kappa_mean;
 blp.pool        = pool;
 blp.diag.lag1_acorr = lag1;

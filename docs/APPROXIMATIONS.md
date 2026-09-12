@@ -234,3 +234,27 @@ cells and out of reach. The grid varies one factor at a time around a
 baseline, so it **cannot identify interactions** — for instance whether
 the sample size at which adaptation starts to pay depends on how sparse
 the misspecification is. Every report of the grid says so.
+
+---
+
+## 5. Two choices made for the empirical application (not used in the simulations)
+
+Both are options that default to the published FMAR behaviour and are
+switched on only by the euro-area drivers; both are documented with their
+evidence in `empirical/README_EMPIRICAL.md`, Status 2–3.
+
+**Prior-scale floor** (`cfg.fmar.psi_floor`). FMAR's Newey–West long-run
+scale falls to a fifth of the residual variance for the near-white-noise
+policy surprise, which drives the global `lambda_h` to 0.01 with a
+bimodal objective. The floor never lets the scale below the residual
+variance. On the simulation designs it binds at `h = 1` only, by a few
+percent, and changes no IRF value by more than 1.5e-4
+(`tests/test_psi_floor.m`).
+
+**Held instrument block** (`cfg.blocks.fixed_tau`). The surprise's lag
+block holds one large coefficient (contemporaneous, the identification)
+and eleven near-zero ones, so the group horseshoe collapses its scale and
+drags the identifying coefficient to the VAR centre. The block is held at
+`tau = 1`, i.e. left under the global prior like the intercept
+(`tests/test_fixed_tau_blocks.m`). The simulations, whose shock variable
+is persistent, do not need this.

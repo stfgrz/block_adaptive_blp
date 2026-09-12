@@ -153,6 +153,17 @@ function out = gibbs_block_horseshoe(y, Z, prior, opts)
 %                      which is sigma2-free -- see conditional (1').)
 %   .tau_probs       : OPTIONAL vector of probabilities for the tau
 %                      quantile summary (default [.05 .25 .5 .75 .95]).
+%   .fixed_blocks    : OPTIONAL vector of block indices whose tau_g is
+%                      HELD AT 1 (the global prior) while the other
+%                      blocks are sampled.  Empty (default) samples every
+%                      block and leaves the random stream exactly as
+%                      before.  Used when a block violates the common-
+%                      scale assumption of the group prior -- e.g. the
+%                      lag block of a white-noise instrument, where one
+%                      coefficient (the contemporaneous one, which carries
+%                      the identification) is large and the other p - 1
+%                      are zero, so the group scale would collapse and
+%                      take the identifying coefficient with it.
 %   .seed            : OPTIONAL; if present, rng(opts.seed) is set here.
 %                      Otherwise the caller controls the RNG stream.
 %
@@ -264,6 +275,16 @@ end
 if ~isfield(opts, 'tau_probs') || isempty(opts.tau_probs)
     opts.tau_probs = [0.05 0.25 0.50 0.75 0.95];
 end
+% Blocks whose tau is held at 1 (see the header).  With the default empty
+% set the loop below is the original one, draw for draw.
+if ~isfield(opts, 'fixed_blocks') || isempty(opts.fixed_blocks)
+    sample_block = true(G, 1);
+else
+    fb = opts.fixed_blocks(:)';
+    assert(all(fb >= 1 & fb <= G & fb == round(fb)), ...
+        'gibbs_block_horseshoe: opts.fixed_blocks must index blocks 1..%d.', G);
+    sample_block = true(G, 1);  sample_block(fb) = false;
+end
 
 n_total = opts.n_burn + opts.n_keep;
 mp_last = zeros(m, 1);              % conditional mean at the last draw
@@ -326,6 +347,7 @@ for it = 1:n_total
             Svec = Svec / sig2;         % (3'): scales carry sigma2
         end
         for g = 1:G
+            if ~sample_block(g), continue; end     % tau_g held at 1
             % draw_ig(a, b) is exactly b / draw_gamma(a, 1); inlining the
             % one-line wrapper removes ~2*G function calls per sweep and
             % consumes the random stream in exactly the same order.

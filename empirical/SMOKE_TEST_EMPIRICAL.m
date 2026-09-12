@@ -90,6 +90,9 @@ cfg.gibbs.n_burn = 100;
 cfg.gibbs.n_keep = 200;
 cfg.fmar.n_niw_draws = 100;
 cfg.fmar.isrw = ds.isrw;          % the vectorised prior mean, the whole point
+cfg.fmar.h1_mode = 'lp';          % as in RUN_EMPIRICAL and the reported MC
+cfg.fmar.psi_floor = true;        % as in RUN_EMPIRICAL (see its header)
+cfg.blocks.fixed_tau = 1;         % the surprise block stays under the global prior
 rng(20260107, 'twister');
 
 % --- 1. BVAR --------------------------------------------------------------
@@ -138,9 +141,36 @@ assert(isequal(size(bb.lo), [K, cfg.H + 1]) && isequal(size(bb.hi), [K, cfg.H + 
        'blp_block .lo/.hi must be K x (H+1)');
 assert(all(isfinite(bb.tau_mean(:))) && all(bb.tau_mean(:) > 0), ...
        'blp_block.tau_mean must be finite and positive');
-assert(all(bb.lo(:, 2:end) <= bb.hi(:, 2:end)), 'blp_block bands are inverted');
+% all() of a MATRIX is a row vector; MATLAB's assert needs a scalar (Octave
+% silently reduces it), so collapse explicitly.
+assert(all(all(bb.lo(:, 2:end) <= bb.hi(:, 2:end))), 'blp_block bands are inverted');
 fprintf('    tau_mean is %d x %d x %d, range [%.3f, %.3f]\n', ...
         K, K, cfg.H, min(bb.tau_mean(:)), max(bb.tau_mean(:)));
+assert(all(all(bb.tau_mean(:, 1, :) == 1)), ...
+       'the surprise block (block 1) must be held at tau = 1 in every equation');
+assert(isequal(bb.fixed_tau_blocks, 1), 'blp_block.fixed_tau_blocks not recorded');
+
+% --- 3b. BLP-pooled (the horizon-pooled adaptive estimator) --------------
+t = tic;
+bp = estimate_blp_blockpooled(ds.Y, cfg, bv, bf.lambda);
+fprintf('[3b] estimate_blp_blockpooled OK (%.1f s)\n', toc(t));
+assert(isequal(size(bp.tau_mean), size(bb.tau_mean)), ...
+       'blp_pooled.tau_mean size differs from the independent estimator');
+assert(isequal(size(bp.p_tau_gt1), size(bb.p_tau_gt1)), 'blp_pooled.p_tau_gt1 size');
+assert(all(all(bp.lo(:, 2:end) <= bp.hi(:, 2:end))), 'blp_pooled bands are inverted');
+assert(all(isfinite(bp.tau_mean(:))) && all(bp.tau_mean(:) > 0), ...
+       'blp_pooled.tau_mean must be finite and positive');
+fprintf('    kappa (posterior mean smoothing sd of log tau), rows = equations:\n');
+for i = 1:K
+    fprintf('      %-6s', ds.varnames{i});  fprintf('%7.3f', bp.kappa_mean(i, :));  fprintf('\n');
+end
+
+% --- 3c. instrument relevance -------------------------------------------
+rel = ea_relevance(ds.Y, bv, cfg);
+fprintf('[3c] ea_relevance OK: impact of a 1pp surprise innovation on i1y = %.4f pp (robust t %.2f, F %.2f)\n', ...
+        rel.impact_b, rel.impact_t, rel.impact_F);
+fprintf('     naive same-month regression b = %.3f (t %.2f); 25bp scale k = %.2f\n', ...
+        rel.naive_b, rel.naive_t, rel.k25);
 
 % --- 4. LP-LA -------------------------------------------------------------
 t = tic;

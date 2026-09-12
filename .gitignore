@@ -17,6 +17,10 @@ results/chunks/
 results/grid/logs/
 empirical/data/SYNTHETIC_*
 
+# Null-calibration checkpoint (intermediate; results/null_calibration.mat
+# and null_thresholds.csv are the outputs)
+results/null_ckpt*.mat
+
 # Octave leaves this behind on abnormal exit
 octave-workspace
 

@@ -1,0 +1,4 @@
+file        = stoxx50_ea.csv
+series      = ECB FM.M.U2.EUR.DS.EI.DJES50I.HSTA (EURO STOXX 50, monthly average; key as in the file KEY column)
+source_url  = ECB Data Portal csvdata layout; downloaded 2026-09-01 (file timestamp); URL not recorded by that run
+recorded_at = 2026-09-12 19:57:52

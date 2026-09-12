@@ -1,0 +1,4 @@
+file        = ip_ea.csv
+series      = Eurostat sts_inpr_m  M.PRD.B-D.SCA.I21.EA20 (header: ESTAT:STS_INPR_M(1.0); PRD, B-D, SCA, I21, EA20)
+source_url  = Eurostat Data Browser export of 2026-09-01 covering 40 geographies x 3 NACE aggregates (kept as ip_ea_full_export.csv), reduced to geo = EA20, nace_r2 = B-D by ea_extract_series on 2026-09-12
+recorded_at = 2026-09-12 19:57:52

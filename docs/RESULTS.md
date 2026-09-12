@@ -10,18 +10,13 @@ CSV alongside it; nothing is transcribed by hand.
 > file it came from is named. Where a run has not been done, the section
 > says so rather than leaving an impression.
 >
-> Complete as of this revision: the 13-cell exploratory grid
-> (`R = 40`), the sparse headline run (`R = 500`), the sensitivity
-> analysis, and the full test suite. The `correct`, `intermediate` and
-> `dense` headline runs were still executing when this was written; the
-> correct-DGP false-positive numbers quoted below therefore come from
-> the earlier `R = 500` run in `results/mc_fmar_final_correct.mat`,
-> which used the FMAR `h = 1` convention and draw-averaged point
-> estimates. Those conventions do not affect the τ localisation
-> statistics, which is why they are quotable here; they do affect the
-> RMSE columns, which is why no RMSE number is quoted from that file.
-> Regenerate everything with `write_results_report` once the runs
-> finish.
+> Complete as of this revision (2026-09-09, re-verified 2026-09-12): the
+> 13-cell exploratory grid (`R = 40`), all four headline runs
+> (`R = 500` for correct and sparse, `R = 250` for intermediate and
+> dense), the sensitivity analysis, and the full test suite (17 tests,
+> MATLAB R2025b). `results/REPORT.txt` is regenerated from the stored
+> files by `write_results_report`. The empirical chapter has its own
+> note, `empirical/docs/CH7_RESULTS.md`.
 
 ---
 

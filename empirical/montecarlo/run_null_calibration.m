@@ -10,29 +10,48 @@ function null = run_null_calibration(cfg_over)
 % estimate_bvar_niw), so the VAR-centred prior is correct by construction.
 % We simulate R datasets from that null (simulate_fitted_bvar_dgp), run the
 % FULL diagnostic pipeline on each (BVAR re-estimated, FMAR lambda
-% re-selected, block sampler re-run -- everything the real-data pipeline
-% does), and record the block scales.  The output is, per (equation, block):
-% null quantiles of the early-horizon mean scale tau_bar, and the null
-% frequency with which each block attains the argmax -- i.e. the empirical
-% false-positive benchmark of the Ch. 6 reading protocol, now calibrated to
-% the EXACT empirical design (K, T, p, persistence, trend).
+% re-selected, block samplers re-run -- everything the real-data pipeline
+% does), and record the block scales.  The output is, per (equation, block)
+% and for EACH adaptive estimator (independent tau, and log tau pooled
+% across horizons):
+%   * null quantiles of the early-horizon mean scale tau_bar;
+%   * null quantiles of the early-horizon mean P(tau > 1);
+%   * the null frequency with which each block attains the argmax -- the
+%     empirical analogue of the correct-DGP false-positive benchmark of the
+%     simulation study, calibrated to the EXACT empirical design (K, T, p,
+%     persistence, trend);
+%   * per equation, the null 95th percentile of max_g tau_bar(i, g) (the
+%     "does anything escape in this equation" flag).
 %
-% READING THE OUTPUT AGAINST REAL DATA
-% ------------------------------------
-%   * A real-data tau_bar(i,g) above null.q95(i,g) is an escape significant
-%     at the 5% level in the calibrated sense.
+% WHY THE NULL MUST BE SIMULATED FOR THIS DESIGN.  The simulation study
+% found that the false-positive baseline of the tau diagnostic is NOT a
+% constant: it moved from 0.42 to 0.62-0.68 when the fitted lag order
+% changed, because a richer fitted VAR estimates its prior centre less
+% precisely and tau faithfully reports the resulting disagreement
+% (docs/RESULTS.md).  At K = 5, p = 12, m = 61 regressors and T = 240 the
+% centre is estimated far less precisely than in any simulation cell, so
+% no threshold from the simulations transfers.  This run is the null.
+%
+% READING THE OUTPUT AGAINST REAL DATA (RUN_EMPIRICAL step E does this)
+% ---------------------------------------------------------------------
+%   * A real-data tau_bar(i,g) above null.<est>.q95(i,g) is an escape
+%     significant at the 5% level in the calibrated sense.
 %   * The real-data argmax block in equation i is meaningful only relative
-%     to null.argmax_freq(i,:) -- the analogue of the correct-DGP benchmark
-%     (0.330 vs 0.976) in the thesis Monte Carlo.
-%   * null.maxstat_q95(i) calibrates the pooled "does ANYTHING escape in
-%     equation i" flag: max_g tau_bar(i,g) compared to its null 95th
-%     percentile (this replaces the retired max/median > 1.5 rule).
+%     to null.<est>.argmax_freq(i,:).
+%   * null.<est>.maxstat_q95(i) calibrates the pooled "does ANYTHING escape
+%     in equation i" flag: max_g tau_bar(i,g) compared to its null 95th
+%     percentile.
 %
 % USAGE
 % -----
 %   null = run_null_calibration();                       % defaults below
 %   null = run_null_calibration(struct('null', struct('n_rep', 10)));  % TIMING
 %   null = run_null_calibration(struct('p', 6));         % match a p = 6 run
+%   null = run_null_calibration(struct('null', struct('psi_floor', false)));
+%                                          % the published prior scale
+%   null = run_null_calibration(struct('null', struct('dataset', ...
+%              '<repo>/empirical/data/ea_dataset_levels.mat', 'tag', '_levels')));
+%                                          % the four-variable level system
 %
 % CONFIG (cfg.null.*, all defaulted here; cfg_over is merged on top of
 % default_config() with cfg.mode = 'fmar')
@@ -51,38 +70,67 @@ function null = run_null_calibration(cfg_over)
 %                       cutting H from 48 to 12 cuts runtime ~4x.  Set to
 %                       cfg.H for full-heatmap thresholds.
 %   h_early      [2 12] horizon window of the tau_bar statistic (monthly
-%                       analogue of the Ch. 6 "early-h" window; h = 0, 1
-%                       are excluded because the block estimator's h <= 1
-%                       is not sampled/is the BVAR).
-%   gibbs_n_burn 200    reduced chains for the null reps (the statistic is
-%   gibbs_n_keep 300    a posterior MEAN of tau; short chains suffice --
-%                       same convention as cfg.mc.* in run_montecarlo).
+%                       analogue of the simulation "early-h" window; h = 1
+%                       is excluded because at h = 1 the LP tightness is
+%                       chosen differently from the BVAR's).
+%   pooled       true   also run the horizon-pooled estimator per rep
+%   h1_mode      'lp'   the h = 1 convention of RUN_EMPIRICAL (README 3a)
+%   psi_floor    true   the prior-scale floor of RUN_EMPIRICAL (see its
+%                       header and priors/fmar_prior_scale.m).  MUST match
+%                       the real-data run: with the published scale the
+%                       lambda_h path, and with it the whole tau scale,
+%                       is different.  Output names carry _nofloor when
+%                       false, exactly as RUN_EMPIRICAL's do.
+%   fixed_tau    1      blocks held at tau = 1 (cfg.blocks.fixed_tau); the
+%                       default holds the surprise block, as RUN_EMPIRICAL
+%                       does.  Pass [] for a system without an instrument
+%                       (the level system); output names then carry
+%                       _allblocks unless a stem is given.
+%   stem         ''     override the whole output stem (e.g. 'p12_levels'
+%                       for the level system); '' = built from p,
+%                       psi_floor, fixed_tau and tag as described below.
+%   gibbs_n_burn 300    chain lengths for the null reps -- the 'final'
+%   gibbs_n_keep 700    Monte Carlo convention.  The statistic is a
+%                       posterior MEAN of tau, so these suffice; the
+%                       real-data run uses 500 + 1500, i.e. the null
+%                       carries slightly MORE sampler noise than the
+%                       statistic read against it (thresholds err on the
+%                       conservative side).
 %   seed         20260901
-%   checkpoint_every 10 save results/null_ckpt.mat every so many reps
+%   checkpoint_every 10 save results/null_ckpt_<stem>.mat every so many reps
 %   resume       true   continue from a checkpoint if present
 %   dataset      <repo>/empirical/data/ea_dataset.mat
-%   out_mat      <repo>/results/null_calibration.mat
-%   out_csv      <repo>/results/null_thresholds.csv
+%   tag          ''     extra suffix for the output names (e.g. '_levels')
+%   out_mat      <repo>/results/null_calibration_<stem>.mat
+%   out_csv      <repo>/results/null_thresholds_<stem>.csv
+%                       with <stem> = p<p>[_nofloor][_allblocks]<tag>, the
+%                       same tag convention as RUN_EMPIRICAL
 %   sim_method   'resample'
 % All default paths are ABSOLUTE, so this runs from any directory.  The
-% checkpoint (results/null_ckpt.mat) is only resumed when its stored
-% n_rep, p and H all match the current run, so a p = 2 checkpoint can
-% never be silently continued as a p = 12 one.
+% checkpoint is only resumed when its stored design (n_rep, p, H, pooled
+% flag, h1_mode, psi_floor, chain lengths, seed, dataset) matches the
+% current run, so a p = 2 checkpoint can never be silently continued as a
+% p = 12 one.
 %
 % RUNTIME
 % -------
 % Each replication runs the full FMAR pipeline at K = 5, m = 1 + K*p = 61
 % (p = 12), H = 12: BVAR tightness search + 5 x 12 lambda searches + 5 x 12
-% Gibbs chains.  Budget roughly 1-3 minutes per rep on a laptop => R = 200
-% is an overnight job; ALWAYS do a quick run (n_rep = 10) first and scale
-% from the printed per-rep timing.  Checkpointing makes interruption safe.
+% Gibbs chains + 5 joint pooled chains.  About 10 seconds per rep in
+% MATLAB (R = 500 in about 1.5 hours), minutes per rep in Octave; ALWAYS do
+% a quick run (n_rep = 10) first and scale from the printed per-rep timing.
+% Checkpointing makes interruption safe.
 %
-% INTEGRATION ASSUMPTIONS (verify once against the repo; see
-% README_EMPIRICAL.md):
-%   bvar = estimate_bvar_niw(Y, cfg)
-%   blpf = estimate_blp_fmar(Y, cfg, bvar)          -> .lambda (K x H)
-%   blpb = estimate_blp_blockadaptive(Y, cfg, bvar, blpf.lambda)
-%          -> .tau_mean (K x G x H), .lo/.hi (K x (H+1))
+% OUTPUT
+% ------
+%   null.block / null.pooled : structs with .tau_bar_mean, .q90, .q95, .q99
+%       (K x G), .pgt1_mean, .pgt1_q95 (K x G), .argmax_freq (K x G),
+%       .maxstat_q95, .pflag_q95, .coverage_under_null (K x 1),
+%       .tau_bar_draws, .pgt1_draws (R x K x G)
+%   null.h_early, .n_rep, .p, .H, .h1_mode, .psi_floor, .varnames,
+%   .gibbs_n_burn/keep, .design, .rep_bvar_lambda, .rep_lambda_multimodal
+%   For backward compatibility the block-estimator fields are also copied
+%   to the top level (null.q95 etc.).
 
 if nargin < 1, cfg_over = struct(); end
 
@@ -97,11 +145,12 @@ cfg.mode = 'fmar';
 cfg = merge_struct(cfg, cfg_over);
 
 nd = struct('n_rep', 200, 'p', 12, 'H', 12, 'h_early', [2 12], ...
-            'gibbs_n_burn', 200, 'gibbs_n_keep', 300, ...
+            'pooled', true, 'h1_mode', 'lp', 'psi_floor', true, ...
+            'fixed_tau', 1, 'stem', '', ...
+            'gibbs_n_burn', 300, 'gibbs_n_keep', 700, ...
             'seed', 20260901, 'checkpoint_every', 10, 'resume', true, ...
-            'dataset', P.dataset, ...
-            'out_mat', fullfile(P.results, 'null_calibration.mat'), ...
-            'out_csv', fullfile(P.results, 'null_thresholds.csv'), ...
+            'dataset', P.dataset, 'tag', '', ...
+            'out_mat', '', 'out_csv', '', ...
             'sim_method', 'resample');
 if isfield(cfg, 'null'), nd = merge_struct(nd, cfg.null); end
 cfg.null = nd;
@@ -111,6 +160,24 @@ cfg.null = nd;
 % do what they look like they do.
 if isfield(cfg_over, 'p'), cfg.null.p = cfg_over.p; end
 cfg.p = cfg.null.p;
+cfg.fmar.h1_mode = cfg.null.h1_mode;
+cfg.fmar.psi_floor = logical(cfg.null.psi_floor);
+cfg.blocks.fixed_tau = cfg.null.fixed_tau;
+
+if ~isempty(cfg.null.stem)
+    stem = cfg.null.stem;
+else
+    stem = sprintf('p%d', cfg.p);
+    if ~cfg.fmar.psi_floor, stem = [stem '_nofloor']; end
+    if isempty(cfg.blocks.fixed_tau), stem = [stem '_allblocks']; end
+    stem = [stem cfg.null.tag];
+end
+if isempty(cfg.null.out_mat)
+    cfg.null.out_mat = fullfile(P.results, sprintf('null_calibration_%s.mat', stem));
+end
+if isempty(cfg.null.out_csv)
+    cfg.null.out_csv = fullfile(P.results, sprintf('null_thresholds_%s.csv', stem));
+end
 
 % --- data and null-run configuration ---------------------------------------
 assert(exist(cfg.null.dataset, 'file') == 2, ...
@@ -118,6 +185,10 @@ assert(exist(cfg.null.dataset, 'file') == 2, ...
         'Build it first: build_shock_series(); fetch_outcome_data(); ' ...
         'assemble_dataset();'], cfg.null.dataset);
 ds = load(cfg.null.dataset);
+if isfield(ds, 'synthetic') && ds.synthetic
+    error(['run_null_calibration: %s is a SYNTHETIC FIXTURE; no empirical ' ...
+           'threshold may be produced from it.'], cfg.null.dataset);
+end
 Y0 = ds.Y;
 [T, K] = size(Y0);
 if isfield(cfg, 'fmar'), cfg.fmar.isrw = ds.isrw; end   % 1 x K, mixed centre
@@ -127,10 +198,15 @@ cfg.H = cfg.null.H;
 cfg.gibbs.n_burn = cfg.null.gibbs_n_burn;
 cfg.gibbs.n_keep = cfg.null.gibbs_n_keep;
 if exist(P.results, 'dir') ~= 7, mkdir(P.results); end
+want_pooled = logical(cfg.null.pooled);
 
-fprintf('run_null_calibration: K = %d, T = %d, p = %d, H = %d, R = %d\n', ...
-        K, T, cfg.p, cfg.H, cfg.null.n_rep);
-fprintf('  thresholds are only valid for a real-data run at the SAME p = %d.\n', cfg.p);
+assert(all(cfg.blocks.fixed_tau >= 1 & cfg.blocks.fixed_tau <= K), ...
+       'run_null_calibration: cfg.null.fixed_tau must index blocks 1..%d.', K);
+fprintf('run_null_calibration: K = %d, T = %d, p = %d, H = %d, R = %d, pooled = %d, h1_mode = %s, psi_floor = %d, blocks held at tau = 1: [%s], chains %d+%d\n', ...
+        K, T, cfg.p, cfg.H, cfg.null.n_rep, want_pooled, cfg.fmar.h1_mode, ...
+        cfg.fmar.psi_floor, num2str(cfg.blocks.fixed_tau), cfg.gibbs.n_burn, cfg.gibbs.n_keep);
+fprintf('  dataset %s; outputs *_%s\n', cfg.null.dataset, stem);
+fprintf('  thresholds are only valid for a real-data run at the SAME p, h1_mode and psi_floor.\n');
 
 % --- the pseudo-true VAR: fitted on the REAL data ---------------------------
 rng(cfg.null.seed, 'twister');
@@ -141,16 +217,38 @@ fprintf('  fitted BVAR: lambda = %.3f, max |eig| = %.4f\n', bvar0.lambda, bvar0.
 R  = cfg.null.n_rep;
 h1 = cfg.null.h_early(1);  h2 = min(cfg.null.h_early(2), cfg.H);
 G  = K;                                        % per-variable blocks
-tau_all   = nan(R, K, G, cfg.H);               % tau_mean at h = 1..H
+tau_all   = nan(R, K, G, cfg.H);               % tau_mean at h = 1..H (independent)
+pg_all    = nan(R, K, G, cfg.H);               % P(tau > 1)
 cover_all = nan(R, K, cfg.H - 1);              % band coverage of dgp.theta, h >= 2
+tau_all_p = [];  pg_all_p = [];  cover_all_p = [];
+if want_pooled
+    tau_all_p = nan(R, K, G, cfg.H);  pg_all_p = nan(R, K, G, cfg.H);
+    cover_all_p = nan(R, K, cfg.H - 1);
+end
+lam_all = nan(R, 1);  eig_all = nan(R, 1);  mm_all = nan(R, 1);
+lamh_all = nan(R, cfg.H);
 r0 = 1;
 
-ck = fullfile(P.results, 'null_ckpt.mat');
-if cfg.null.resume && exist(ck, 'file')
+ck = fullfile(P.results, sprintf('null_ckpt_%s.mat', stem));
+design = struct('n_rep', R, 'p', cfg.p, 'H', cfg.H, 'pooled', want_pooled, ...
+                'h1_mode', cfg.fmar.h1_mode, 'psi_floor', cfg.fmar.psi_floor, ...
+                'fixed_tau', cfg.blocks.fixed_tau(:)', ...
+                'gibbs_n_burn', cfg.gibbs.n_burn, 'gibbs_n_keep', cfg.gibbs.n_keep, ...
+                'seed', cfg.null.seed, 'sim_method', cfg.null.sim_method, ...
+                'dataset', cfg.null.dataset);
+if cfg.null.resume && exist(ck, 'file') == 2
     L = load(ck);
-    if isequal(L.n_rep, R) && isequal(L.p, cfg.p) && isequal(L.H, cfg.H)
-        tau_all = L.tau_all;  cover_all = L.cover_all;  r0 = L.r_done + 1;
+    if isfield(L, 'design') && isequal(L.design, design)
+        tau_all = L.tau_all;  pg_all = L.pg_all;  cover_all = L.cover_all;
+        lam_all = L.lam_all;  eig_all = L.eig_all;  mm_all = L.mm_all;
+        lamh_all = L.lamh_all;
+        if want_pooled
+            tau_all_p = L.tau_all_p;  pg_all_p = L.pg_all_p;  cover_all_p = L.cover_all_p;
+        end
+        r0 = L.r_done + 1;
         fprintf('  resuming from checkpoint at rep %d\n', r0);
+    else
+        fprintf('  (checkpoint %s belongs to a different design; starting afresh)\n', ck);
     end
 end
 
@@ -163,12 +261,24 @@ for r = r0:R
     blpf = estimate_blp_fmar(dgp.Y, cfg, bvr);
     blpb = estimate_blp_blockadaptive(dgp.Y, cfg, bvr, blpf.lambda);
     tau_all(r, :, :, :) = blpb.tau_mean;       % (K x G x H)
+    pg_all(r, :, :, :)  = blpb.p_tau_gt1;
     th = dgp.theta(:, 3:cfg.H + 1);            % true-under-null IRF, h >= 2
     cover_all(r, :, :) = blpb.lo(:, 3:cfg.H + 1) <= th & ...
                          th <= blpb.hi(:, 3:cfg.H + 1);
+    if want_pooled
+        blpp = estimate_blp_blockpooled(dgp.Y, cfg, bvr, blpf.lambda);
+        tau_all_p(r, :, :, :) = blpp.tau_mean;
+        pg_all_p(r, :, :, :)  = blpp.p_tau_gt1;
+        cover_all_p(r, :, :) = blpp.lo(:, 3:cfg.H + 1) <= th & ...
+                               th <= blpp.hi(:, 3:cfg.H + 1);
+    end
+    lam_all(r) = bvr.lambda;  eig_all(r) = bvr.max_eig;
+    mm_all(r) = blpf.diag.lambda_multimodal;
+    lamh_all(r, :) = blpf.lambda(1, :);
     if mod(r, cfg.null.checkpoint_every) == 0 || r == R
-        r_done = r; n_rep = R; p = cfg.p; H = cfg.H;                 %#ok<NASGU>
-        save(ck, 'tau_all', 'cover_all', 'r_done', 'n_rep', 'p', 'H');
+        r_done = r;                                                  %#ok<NASGU>
+        save(ck, 'tau_all', 'pg_all', 'cover_all', 'tau_all_p', 'pg_all_p', ...
+             'cover_all_p', 'lam_all', 'eig_all', 'mm_all', 'lamh_all', 'r_done', 'design');
         el = toc(t_start);
         fprintf('  rep %3d / %d done  (%.1f s/rep, ~%.1f min left)\n', ...
                 r, R, el / (r - r0 + 1), el / (r - r0 + 1) * (R - r) / 60);
@@ -176,60 +286,104 @@ for r = r0:R
 end
 
 % --- statistics --------------------------------------------------------------
-% early-horizon mean scale per replication: (R x K x G)
-tb = mean(tau_all(:, :, :, h1:h2), 4);
-
-null.q90 = zeros(K, G);  null.q95 = zeros(K, G);  null.q99 = zeros(K, G);
-null.tau_bar_mean = squeeze(mean(tb, 1));
-null.argmax_freq  = zeros(K, G);
-null.maxstat_q95  = zeros(K, 1);
-for i = 1:K
-    mx = squeeze(max(tb(:, i, :), [], 3));
-    q  = empirical_quantile(mx, 0.95);
-    null.maxstat_q95(i) = q(1);
-    for g = 1:G
-        q3 = empirical_quantile(squeeze(tb(:, i, g)), [0.90, 0.95, 0.99]);
-        null.q90(i, g) = q3(1);  null.q95(i, g) = q3(2);  null.q99(i, g) = q3(3);
-    end
-    [~, am] = max(squeeze(tb(:, i, :)), [], 2);
-    for g = 1:G
-        null.argmax_freq(i, g) = mean(am == g);
-    end
+null = struct();
+null.block = null_stats(tau_all, pg_all, cover_all, h1, h2);
+if want_pooled
+    null.pooled = null_stats(tau_all_p, pg_all_p, cover_all_p, h1, h2);
 end
-null.coverage_under_null = squeeze(mean(mean(cover_all, 1), 3));  % per equation
 null.h_early = [h1 h2];
 null.n_rep = R;  null.p = cfg.p;  null.H = cfg.H;
-null.tau_bar_draws = tb;
+null.h1_mode = cfg.fmar.h1_mode;
+null.psi_floor = cfg.fmar.psi_floor;
+null.fixed_tau = cfg.blocks.fixed_tau(:)';   % blocks held at tau = 1 (no signal there)
+null.gibbs_n_burn = cfg.gibbs.n_burn;  null.gibbs_n_keep = cfg.gibbs.n_keep;
+null.sim_method = cfg.null.sim_method;
 null.varnames = ds.varnames;
+null.stem = stem;
+null.bvar0_lambda = bvar0.lambda;  null.bvar0_max_eig = bvar0.max_eig;
+null.rep_bvar_lambda = lam_all;    null.rep_bvar_max_eig = eig_all;
+null.rep_lambda_multimodal = mm_all;
+null.rep_lambda_h = lamh_all;      % (R x H) the null distribution of the tightness path
+null.design = design;
+% backward-compatible top-level copies of the independent-estimator fields
+for f = {'q90', 'q95', 'q99', 'tau_bar_mean', 'argmax_freq', 'maxstat_q95', ...
+         'coverage_under_null', 'tau_bar_draws'}
+    null.(f{1}) = null.block.(f{1});
+end
 
 save(cfg.null.out_mat, '-struct', 'null');
 
 % threshold table (long format, thesis Table appendix + reading protocol)
 fid = fopen(cfg.null.out_csv, 'w');
 assert(fid > 0, 'run_null_calibration: cannot write %s', cfg.null.out_csv);
-fprintf(fid, 'equation,block,null_mean,q90,q95,q99,argmax_freq\n');
-for i = 1:K
-    for g = 1:G
-        fprintf(fid, '%s,%s,%.4f,%.4f,%.4f,%.4f,%.4f\n', ...
-                ds.varnames{i}, ds.varnames{g}, null.tau_bar_mean(i, g), ...
-                null.q90(i, g), null.q95(i, g), null.q99(i, g), ...
-                null.argmax_freq(i, g));
+fprintf(fid, ['scale_estimator,equation,block,null_mean,q90,q95,q99,argmax_freq,' ...
+              'pgt1_mean,pgt1_q95,eq_maxstat_q95,eq_pflag_q95,eq_coverage_under_null\n']);
+ests = {'block'};  if want_pooled, ests{end + 1} = 'pooled'; end
+for e = 1:numel(ests)
+    S = null.(ests{e});
+    for i = 1:K
+        for g = 1:G
+            fprintf(fid, '%s,%s,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n', ...
+                    ests{e}, ds.varnames{i}, ds.varnames{g}, S.tau_bar_mean(i, g), ...
+                    S.q90(i, g), S.q95(i, g), S.q99(i, g), S.argmax_freq(i, g), ...
+                    S.pgt1_mean(i, g), S.pgt1_q95(i, g), S.maxstat_q95(i), ...
+                    S.pflag_q95(i), S.coverage_under_null(i));
+        end
     end
 end
 fclose(fid);
 
 fprintf('\nrun_null_calibration: done (R = %d).\n', R);
-fprintf('  per-equation null argmax frequencies (uniform = %.3f):\n', 1 / G);
-for i = 1:K
-    fprintf('    eq %-6s: ', ds.varnames{i});
-    fprintf('%.3f ', null.argmax_freq(i, :));
-    fprintf('| max-stat q95 = %.3f | band coverage under null = %.3f\n', ...
-            null.maxstat_q95(i), null.coverage_under_null(i));
+fprintf('  null lambda_h path (median over reps), h = 1..%d:\n   ', cfg.H);
+fprintf(' %.3f', median(lamh_all, 1));  fprintf('\n');
+fprintf('  lambda objective multimodal in %.0f%% of reps (mean %.2f horizons per rep)\n', ...
+        100 * mean(mm_all > 0), mean(mm_all));
+for e = 1:numel(ests)
+    S = null.(ests{e});
+    fprintf('  [%s] per-equation null argmax frequencies (uniform = %.3f):\n', ests{e}, 1 / G);
+    for i = 1:K
+        fprintf('    eq %-6s: ', ds.varnames{i});
+        fprintf('%.3f ', S.argmax_freq(i, :));
+        fprintf('| max-stat q95 = %.3f | P(tau>1) flag q95 = %.3f | band coverage under null = %.3f\n', ...
+                S.maxstat_q95(i), S.pflag_q95(i), S.coverage_under_null(i));
+    end
 end
 fprintf('  thresholds written to %s\n', cfg.null.out_csv);
 end
 
 % -------------------------------------------------------------------------
+function S = null_stats(tau_all, pg_all, cover_all, h1, h2)
+% Null quantiles and frequencies for ONE scale estimator.
+[R, K, G, ~] = size(tau_all);
+tb = mean(tau_all(:, :, :, h1:h2), 4);         % (R x K x G) early-horizon mean scale
+pb = mean(pg_all(:, :, :, h1:h2), 4);          % (R x K x G) early-horizon mean P(tau>1)
+S.q90 = zeros(K, G);  S.q95 = zeros(K, G);  S.q99 = zeros(K, G);
+S.pgt1_q95 = zeros(K, G);
+S.tau_bar_mean = reshape(mean(tb, 1), [K, G]);
+S.pgt1_mean    = reshape(mean(pb, 1), [K, G]);
+S.argmax_freq  = zeros(K, G);
+S.maxstat_q95  = zeros(K, 1);
+S.pflag_q95    = zeros(K, 1);
+for i = 1:K
+    mx = reshape(max(tb(:, i, :), [], 3), [R, 1]);
+    S.maxstat_q95(i) = empirical_quantile(mx, 0.95);
+    px = reshape(max(pb(:, i, :), [], 3), [R, 1]);
+    S.pflag_q95(i) = empirical_quantile(px, 0.95);
+    for g = 1:G
+        q3 = empirical_quantile(reshape(tb(:, i, g), [R, 1]), [0.90, 0.95, 0.99]);
+        S.q90(i, g) = q3(1);  S.q95(i, g) = q3(2);  S.q99(i, g) = q3(3);
+        S.pgt1_q95(i, g) = empirical_quantile(reshape(pb(:, i, g), [R, 1]), 0.95);
+    end
+    [~, am] = max(reshape(tb(:, i, :), [R, G]), [], 2);
+    for g = 1:G
+        S.argmax_freq(i, g) = mean(am == g);
+    end
+end
+S.coverage_under_null = reshape(mean(mean(cover_all, 1), 3), [K, 1]);  % per equation
+S.tau_bar_draws = tb;
+S.pgt1_draws = pb;
+end
+
 function a = merge_struct(a, b)
 f = fieldnames(b);
 for k = 1:numel(f)

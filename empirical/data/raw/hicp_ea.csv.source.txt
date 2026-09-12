@@ -1,0 +1,4 @@
+file        = hicp_ea.csv
+series      = Eurostat prc_hicp_midx  M.I15.CP00.EA (header: ESTAT:PRC_HICP_MIDX(1.0), LAST UPDATE 06/02/26)
+source_url  = Eurostat dissemination API SDMX-CSV layout; downloaded 2026-09-01 (file timestamp); URL not recorded by that run
+recorded_at = 2026-09-12 19:57:52

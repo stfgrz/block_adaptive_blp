@@ -1,0 +1,4 @@
+file        = rate1y_ea.csv
+series      = ECB FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA (12-month Euribor, monthly average; key as in the file KEY column)
+source_url  = ECB Data Portal csvdata layout; downloaded 2026-09-01 (file timestamp); URL not recorded by that run
+recorded_at = 2026-09-12 19:57:52

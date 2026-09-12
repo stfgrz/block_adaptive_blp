@@ -192,6 +192,15 @@ if isfield(cfg.blp, 'fix_tau') && ~isempty(cfg.blp.fix_tau)
     gopts.sample_tau = false;
     gopts.tau_fixed  = cfg.blp.fix_tau;
 end
+% Blocks held at tau = 1 while the others adapt (cfg.blocks.fixed_tau;
+% see default_config.m).  Empty = the original behaviour.
+fixed_tau_blocks = [];
+if isfield(cfg, 'blocks') && isfield(cfg.blocks, 'fixed_tau') && ~isempty(cfg.blocks.fixed_tau)
+    fixed_tau_blocks = cfg.blocks.fixed_tau(:)';
+    assert(all(fixed_tau_blocks >= 1 & fixed_tau_blocks <= G), ...
+        'estimate_blp_blockadaptive: cfg.blocks.fixed_tau must index blocks 1..%d.', G);
+    gopts.fixed_blocks = fixed_tau_blocks;
+end
 
 theta_mean = zeros(K, H + 1);  theta_med = zeros(K, H + 1);
 theta_rb = zeros(K, H + 1);  theta_dm = zeros(K, H + 1);
@@ -201,6 +210,7 @@ theta_rb = zeros(K, H + 1);  theta_dm = zeros(K, H + 1);
 % without re-estimating anything -- see
 % montecarlo/run_sensitivity_approximations.m, part B1.
 beta_block = zeros(K, K, H);
+beta_all   = zeros(m, K, H);            % full posterior-mean coefficient vectors
 point_mode = point_estimate_mode(cfg);
 lo = nan(K, H + 1);  hi = nan(K, H + 1);
 lo_post = nan(K, H + 1);  hi_post = nan(K, H + 1);
@@ -235,7 +245,11 @@ for h = 1:H
 
     % ---- horizon-level scale objects (FMAR) -----------------------------
     if fmar
-        psi_h = fmar_prior_scale(x, p, h);
+        % same optional prior-scale floor as estimate_blp_fmar (must be
+        % identical in the three estimators for the tau = 1 nesting)
+        psi_floor = isfield(cfg.fmar, 'psi_floor') && ~isempty(cfg.fmar.psi_floor) ...
+                    && logical(cfg.fmar.psi_floor);
+        psi_h = fmar_prior_scale(x, p, h, psi_floor);
         % lambda common to all equations at this horizon:
         if isempty(lambda_mat)
             lam_h = select_lambda_fmar(Yh, Zh, Mu, psi_h, h, cfg);
@@ -349,6 +363,11 @@ for h = 1:H
         p_tau_gt1(i, :, h) = out.p_tau_gt1';
         theta_cond(i, h + 1) = out.beta_cond_mean(2:1 + K)' * b1n;
         beta_block(i, :, h)  = out.beta_rb_mean(2:1 + K)';
+        if strcmp(point_mode, 'draw_mean')
+            beta_all(:, i, h) = out.beta_mean;
+        else
+            beta_all(:, i, h) = out.beta_rb_mean;
+        end
         lag1(i, h) = out.diag.lag1_acorr_beta;
         ess_beta(i, h) = out.diag.ess_beta;
         rb_series      = out.beta_cond_draws(:, 2:1 + K) * b1n;
@@ -370,6 +389,7 @@ blp.theta_draw_mean = theta_dm;
 blp.point_estimate  = point_mode;
 blp.sigma2_mode     = sigma2_mode;
 blp.beta_block      = beta_block;
+blp.beta_mean       = beta_all;         % (m x K x H) reported posterior-mean coefficients
 blp.lo          = lo;
 blp.hi          = hi;
 blp.lo_post     = lo_post;
@@ -381,6 +401,7 @@ blp.tau_med     = tau_med;
 blp.tau_q       = tau_q;
 blp.tau_probs   = gopts.tau_probs(:)';
 blp.p_tau_gt1   = p_tau_gt1;
+blp.fixed_tau_blocks = fixed_tau_blocks;   % blocks held at tau = 1 ([] = none)
 blp.theta_cond  = theta_cond;
 blp.diag.lag1_acorr = lag1;
 blp.diag.ess_beta   = ess_beta;   % ESS of the raw IRF draws

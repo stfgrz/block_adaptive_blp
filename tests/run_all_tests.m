@@ -41,6 +41,11 @@ test_mc_metrics();          % metric definitions, both IRMSE conventions,
 test_tau_diagnostics();     % localisation / false-positive accounting
 test_chunk_merge();         % parallel chunking is exact; cfg round trip
 test_approximations();      % the claims docs/APPROXIMATIONS.md rests on
+test_psi_floor();           % the optional prior-scale floor: inert on the
+                            % simulations, active + nesting-exact where
+                            % the euro-area data need it
+test_fixed_tau_blocks();    % holding chosen blocks at tau = 1 (the
+                            % instrument block in the empirical chapter)
 test_empirical_pipeline();  % Ch. 7 package on a synthetic fixture
 
 fprintf('==============================================\n');

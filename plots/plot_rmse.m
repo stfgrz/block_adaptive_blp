@@ -41,8 +41,10 @@ for i = 1:K
     set(gca, 'Position', pos);
     hnd = [];
     for e = 1:nE
+        % wrap rather than index past the end: the stack has five
+        % estimators in FMAR mode (four colours listed above)
         hnd(end + 1) = plot(1:H, squeeze(s.rmse(e, i, :)), '-', ...
-             'Color', colors(e, :), 'LineWidth', 1.5);
+             'Color', colors(1 + mod(e - 1, size(colors, 1)), :), 'LineWidth', 1.5);
     end
     xlabel('horizon h'); title(sprintf('RMSE, response of y_%d', i));
     if i == 1

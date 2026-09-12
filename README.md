@@ -130,10 +130,21 @@ Everything else — detrending, prior centre, Newey–West long-run scales,
   gets for free, serves better.
 * **Broad generalisation.** The experiment grid varies one factor at a
   time around a baseline and cannot identify interactions.
-* **Empirical usefulness.** The Chapter 7 application has no completed
-  dataset: the four outcome series are licensed and not in the
-  repository. Nothing empirical has been estimated, and the package
-  refuses to run on the synthetic fixture that makes it testable.
+* **Empirical usefulness — now being tested.** The four euro-area
+  outcome series are on the author's machine (third-party data, not in
+  the repository), the dataset is assembled and validated, and the whole
+  Chapter 7 pipeline has run in MATLAB (2026-09-12). Three things the
+  real data forced are documented in `empirical/README_EMPIRICAL.md`:
+  the surprise is a weak instrument for the monthly-average 1-year rate;
+  FMAR's Newey–West prior scale collapses on a near-white-noise variable
+  and needed a floor (`cfg.fmar.psi_floor`, inert on the simulations);
+  and the instrument's lag block cannot be a horseshoe block and is held
+  at `tau = 1` (`cfg.blocks.fixed_tau`). Read against a null calibrated on the fitted BVAR (`R = 500`), two
+  cells survive at the 5% level: the HICP own-lag block and the
+  interest-rate block in the industrial-production equation; everything
+  else in the map is within what a correctly specified VAR(12) produces
+  on data like these. The τ maps, the null calibration and the protocol
+  reading are in `empirical/docs/CH7_RESULTS.md`.
 
 See `docs/RESULTS.md` for the numbers and `docs/APPROXIMATIONS.md` for
 what the remaining simplifications cost.
@@ -174,9 +185,10 @@ exactly the closed form when `tau` is fixed.
   backslash, basic plotting). **No toolboxes required** — gamma/inverse-gamma
   draws, quantiles and normal quantiles are implemented in `utils/`.
 - The Parallel Computing Toolbox is *not* required (plain `for` loops).
-- The code also runs under GNU Octave ≥ 8 (every result reported here was
-  produced and verified under Octave 8.4), but MATLAB is the target
-  platform. Two Octave-specific notes: the demonstration scripts skip
+- The code also runs under GNU Octave ≥ 8 (the simulation results were
+  produced under Octave 8.4; the full test suite and the empirical
+  chapter were run under MATLAB R2025b on 2026-09-12, where the suite
+  takes about 12 minutes). Two Octave-specific notes: the demonstration scripts skip
   their figures when no graphics toolkit is installed
   (`plots/can_plot.m`), and a saved configuration struct stores its one
   anonymous function as source text because Octave's `save` refuses
@@ -250,7 +262,9 @@ tests/              assertion-based tests + run_all_tests
 utils/              regressor builder, gamma / inverse-gamma / quantile
                     draws, safe Cholesky, gamma_coef, draw_iw,
                     var_deterministic_trend, cfg_to_savable / cfg_from_saved
-docs/               APPROXIMATIONS.md  what the remaining simplifications cost
+docs/               PROJECT_EXPLAINED.md  the whole project in plain language,
+                                       file by file -- start here after a break
+                    APPROXIMATIONS.md  what the remaining simplifications cost
                     REPRODUCE.md       every command, with runtimes
                     RESULTS.md         the headline numbers and how to read them
 empirical/          Chapter 7 euro-area application, self-contained;
@@ -395,6 +409,15 @@ says explicitly which conclusions they do and do not support.
 4. **A factorial rather than one-factor-at-a-time grid**, to identify
    interactions — above all between misspecification sparsity and sample
    size.
-5. **The euro-area application.** The pipeline runs; what is missing is
-   the four licensed outcome series and the `R >= 200` null calibration.
-   See `empirical/README_EMPIRICAL.md`.
+5. **The euro-area application.** Data, estimation and null calibration
+   are done (`empirical/docs/CH7_RESULTS.md`). What remains is
+   methodological: the surprise block still drags the global `lambda_h`
+   down for every other block even with the prior-scale floor, and the
+   principled cure is AGKL's zero restrictions on the instrument block
+   (lagged surprises out of the horizon regressions) rather than a
+   rescaling; a stronger indicator (an end-of-month 1-year OIS rate
+   instead of the monthly-average Euribor) would address the weak first
+   stage. See `empirical/README_EMPIRICAL.md`, Status 1–3.
+6. **The status deck.** `presentation/thesis_pitch.tex` records the
+   state of 8 September 2026 and predates the pooled estimator, the
+   headline runs and the empirical results; its roadmap items are done.

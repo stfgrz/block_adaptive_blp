@@ -30,15 +30,37 @@ and verified estimator signatures: `README_EMPIRICAL.md`.
 > because averaging `tau` over equations dilutes a signal confined to
 > one equation. See `montecarlo/tau_diagnostics.m`.
 >
-> **Status caveat (2026-09-01, unchanged).** The four outcome series have
-> not yet been obtained. The files that previously sat under their names were
-> generated placeholders, not data, and are quarantined in
-> `data/raw/placeholder_rejected/`; `fetch_outcome_data` and
-> `assemble_dataset` now refuse them. Every number in this document that
-> depends on the outcome series — the first-stage F, the tau maps, all of
-> Sec. 7's pre-registered expectations — is therefore still to be
-> produced. The shock-series statistics in Sec. 1 are real: they come from
-> the shipped EA-EMPD event file and reproduce exactly.
+> **Update (2026-09-12): the data are in and the pipeline has run.** The
+> four outcome series were obtained on 2026-09-01 and validated; the
+> industrial-production export had to be reduced to the single EA20/B-D
+> series. `RUN_EMPIRICAL` steps A–F and the null calibrations have been
+> run in MATLAB. Three findings changed the design below, and are
+> documented in full in `README_EMPIRICAL.md` (Status 1–3):
+> 1. **Weak instrument.** The impact of the surprise innovation on the
+>    1-year-rate innovation has a robust t of 0.77 (F = 0.59) at p = 12,
+>    not the F ≈ 4 budgeted in Sec. 2. The τ diagnostic does not depend
+>    on this; the structural reading of the IRFs and the 25 bp scale do.
+> 2. **Prior scale.** FMAR's Newey–West scale collapses for the
+>    near-white-noise surprise and drives the global λ_h to 0.01 with a
+>    bimodal objective at long horizons. The baseline now floors ψ at the
+>    residual variance (`cfg.fmar.psi_floor = true`), which leaves the
+>    simulations essentially untouched.
+> 3. **Instrument block.** The surprise's lag block violates the group
+>    prior's common-scale assumption and, when free, pulls the identifying
+>    coefficient to the VAR centre. The baseline holds it at τ = 1
+>    (`cfg.blocks.fixed_tau = 1`); the diagnostic is read on the four level
+>    blocks. Consequently the Sec. 5.3 coherence check is evaluated with
+>    that block held.
+> Two further consequences for the reading. Because τ is measured relative
+> to λ_h and λ_h is much tighter at p = 12 than at p = 2 (a richer fitted
+> VAR), the *level* of τ̄ is not comparable across p; the dose–response of
+> Sec. 5.2 is therefore read through the protocol (cells above their own
+> null q95 at each p, `dose_response_protocol_<tag>.csv`). And a
+> four-variable level system without the surprise (step F) is reported as
+> a companion exhibit, because the surprise block also drags λ_h down for
+> everyone else. Results: `docs/CH7_RESULTS.md`.
+>
+> The shock-series statistics in Sec. 1 are real and reproduce exactly.
 
 ---
 

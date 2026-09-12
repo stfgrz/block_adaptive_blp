@@ -61,6 +61,17 @@ cfg.seed = 12345;
 % y_g(t), y_g(t-1), ..., y_g(t-p+1).  This gives G = K blocks of p
 % coefficients each.  The intercept is NOT shrunk by any tau (block 0).
 cfg.blocks.scheme = 'per_variable';
+% Blocks whose escape scale is HELD AT 1 (the global FMAR prior) while the
+% others adapt.  Empty (default) = every block adapts; the simulation
+% study uses the default throughout.  The euro-area application sets it
+% to 1, the block of the policy SURPRISE: that block holds one large
+% coefficient (the contemporaneous one, which carries the identification)
+% and p - 1 near-zero lag coefficients, so it violates the group prior's
+% common-scale assumption -- the group scale collapses on the zeros and
+% drags the identifying coefficient to the VAR centre with it, which
+% pushed the adaptive IRFs onto the BVAR while the global BLP followed
+% the LP.  Held blocks report tau = 1 and P(tau > 1) = 0.
+cfg.blocks.fixed_tau = [];
 
 % ---------------------------------------------------------------------
 % Prior / global tightness (lambda_h)
@@ -251,6 +262,18 @@ cfg.fmar.n_niw_draws = 500;     % NIW posterior draws for BVAR bands
 %            h = 1 comparison is like-for-like and the tau = 1 nesting
 %            is exact at EVERY h >= 1.  See estimate_blp_fmar.m item 7.
 cfg.fmar.h1_mode = 'bvar';
+% Floor the Newey-West long-run prior scale psi_v(h) at the plain
+% residual variance of the univariate LP (priors/fmar_prior_scale.m).
+% The floor does not bind for a persistent variable at h >= 2 (positive
+% residual autocovariances) and binds by a few percent at h = 1 only, so
+% on the simulation designs it is essentially inert (max IRF change 1e-3,
+% tests/test_psi_floor.m); it matters for a near-white-noise,
+% mean-reverting series such as the euro-area policy surprise, whose NW
+% long-run variance falls to a fifth of its variance at long horizons and
+% otherwise drives the global lambda_h to ~0.01 with a bimodal objective.
+% false = the published FMAR scale (DEFAULT, so every stored result is
+% reproduced); the empirical drivers set it to true and say so.
+cfg.fmar.psi_floor = false;
 
 % ---------------------------------------------------------------------
 % Demonstration script switches (RUN_ME_FIRST.m)
