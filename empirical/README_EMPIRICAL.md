@@ -36,6 +36,53 @@ empirical/
   tests/test_empirical_pipeline.m     the package on that fixture (in run_all_tests)
 ```
 
+## Status (2026-09-13): v2 redesign prepared, awaiting the 1-month OIS level
+
+The 2026-09-12 run below is now the **legacy baseline (v1)**: the surprise
+as an internal instrument ordered first. The redesign keeps it intact and
+adds a second pipeline (`RUN_EMPIRICAL_IV.m`, outputs `results/iv_*`) in
+which the state vector carries no surprise and the EA-EMPD surprise is an
+external instrument used only to identify the impact vector
+(`data/ea_identify_proxy.m`). Design and every literature-backed choice:
+`docs/CH7_REDESIGN.md`, `docs/CH7_LITERATURE.md`; Monday's data:
+`docs/MONDAY_DATA_CHECKLIST.md`; results obtained today with the legacy
+indicator: `docs/CH7_RESULTS.md`, section "v2 preview".
+
+What the dress rehearsal on today's data says (details in `CH7_RESULTS.md`,
+"v2 preview"): on the legacy 12M-Euribor indicator the 1-month instruments
+have no first stage (maturity mismatch, as predicted); the speeches-augmented
+1-year surprise with day-weighted aggregation reaches F_eff ≈ 5.4 on the
+BVAR innovations (10.9 in LP-IV) against 0.5 for the legacy series, and 16
+once 2008m9–2009m6 are excluded; the HICP own-lag block is the one
+calibrated escape at every p ∈ {2, 4, 6, 12} against its own null and it
+carries out-of-sample predictive content (forcing it back to τ = 1 raises
+the 2-month HICP MSFE by 56 %), while the two borderline flags of the
+year-on-year system do not. Proxy-identified IRFs are shown with
+Anderson–Rubin sets and are not quoted as findings at these first stages.
+
+New pieces (all in `run_all_tests`):
+
+```
+data/build_instrument_series.m   full EA-EMPD workbook -> 34 monthly instruments (1M adjusted per
+                                 AGKL eq. 3, speeches, 3M, 1Y, JK, path proxy) x {sum, kilian}
+data/import_ois_daily.m          daily EUREON1M= -> monthly eom / avg / first (+ synthetic fixture
+                                 tests/make_synthetic_ois_daily.m)
+data/assemble_dataset_v2.m       systems lev4, lev4_yoy, ois4, ois6; instruments in ds.Z; '_bs'
+                                 orthogonalised versions; external series (import_external_instrument.m)
+data/ea_identify_proxy.m         proxy impact vector b_z = Cov(u, z)/Cov(u_s, z), NIW-draw bands,
+                                 HAC delta-method se, first stage
+data/ea_relevance_iv.m           first stage (effective F vs MOP thresholds), naive, lead/lag placebo,
+                                 predictability, leave-one-out influence, crisis exclusion, subsamples
+data/ea_fetch_v2_series.m        verified ECB keys for SA HICP, loans, cost of borrowing, EONIA
+estimators/estimate_lp_iv.m      LP-IV benchmark: HAC bands, lag-augmented EHW, Anderson-Rubin sets
+ea_design_key.m, ea_apply_protocol.m, ea_cross_p_table.m
+                                 null modularity: a null is refused for a different design; per-cell
+                                 ratio to q95, null percentile, Holm and max-stat counts across p
+montecarlo/run_block_ablation.m  out-of-sample validation: force one escaping cell back to tau = 1
+                                 (cfg.blocks.fixed_tau_mask, cfg.blp.equations) and compare forecasts
+                                 (Diebold-Mariano with HLN, Clark-West)
+```
+
 ## Status (2026-09-12)
 
 **The data are in place on this machine.** The four outcome series were

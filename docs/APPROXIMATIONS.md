@@ -258,3 +258,27 @@ drags the identifying coefficient to the VAR centre. The block is held at
 `tau = 1`, i.e. left under the global prior like the intercept
 (`tests/test_fixed_tau_blocks.m`). The simulations, whose shock variable
 is persistent, do not need this.
+
+## Added 2026-09-13: proxy identification (v2 empirical design)
+
+`empirical/data/ea_identify_proxy.m` replaces the recursive impact vector by
+`b_z = Cov(u_t, z_t) / Cov(u_{s,t}, z_t)` and hands it to every estimator
+through `var_est.b1n`. Two approximations follow, both inherited from the
+FMAR convention of holding the impact vector fixed:
+
+1. **Sandwich bands hold `b_z` fixed.** The BLP-FMAR, BLP-block and
+   BLP-pooled bands are `sqrt(b_z' V_i b_z)` with `b_z` at its point
+   estimate, exactly as FMAR do with the Cholesky `b1n`. The sampling error
+   of `b_z` (a ratio of covariances with a possibly weak instrument) is
+   reported separately: a HAC delta-method standard error per element
+   (`.ident.b_z_se`), the first-stage effective F, and — fully — the
+   Anderson–Rubin sets of `estimate_lp_iv`, which remain valid when the
+   instrument is weak. When the effective F is below the Montiel Olea–
+   Pflueger 10 %-bias threshold (23.1), the AR sets are the bands to report.
+2. **BVAR bands carry parameter uncertainty in `b_z` only.** Each NIW draw
+   re-identifies `b_z` from the residuals at the drawn coefficients and the
+   same instrument, so the draws reflect coefficient uncertainty but not the
+   finite-sample noise of the covariance with `z` given the coefficients.
+
+Neither approximation touches the tau map: the block scales are sampled
+from equations that do not involve the instrument.

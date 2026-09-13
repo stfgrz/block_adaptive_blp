@@ -123,6 +123,27 @@ function blp = estimate_blp_blockadaptive(Y, cfg, var_est, lambda_mat)
 %                          posterior mean -- used by the nesting tests.
 %   .diag                  sampler diagnostics (.lag1_acorr, .ess_beta,
 %                          .ess_logtau, .n_tau_clip)
+%   .fixed_tau_blocks      cfg.blocks.fixed_tau as used ([] = none)
+%   .fixed_tau_mask        (K x G) logical: cells held at tau = 1, the
+%                          UNION of cfg.blocks.fixed_tau and
+%                          cfg.blocks.fixed_tau_mask (all false = none)
+%   .equations             equation indices actually estimated
+%
+% RESTRICTING THE CELLS (all optional; see utils/resolve_blp_cell_options.m)
+% --------------------------------------------------------------------------
+% cfg.blocks.fixed_tau       blocks held at tau = 1 in every equation;
+% cfg.blocks.fixed_tau_mask  (K x G) logical, cell (i, g) held at tau = 1
+%                            (union with fixed_tau).  Held cells report
+%                            tau_mean = tau_med = tau_q = 1, p_tau_gt1 = 0;
+% cfg.blp.equations          subset of equations to estimate ([] = all).
+%                            Skipped equations return NaN in every
+%                            per-equation output (theta_* at h >= 1,
+%                            lo/hi, tau_*, beta_block, beta_mean, lambda,
+%                            diag); the h = 0 column and prior_theta are
+%                            still filled for all equations.  Skipped
+%                            equations consume no random draws, so the
+%                            estimated ones are NOT draw-identical to a
+%                            full run under the same seed.
 %
 % DIMENSIONS
 % ----------
@@ -192,15 +213,13 @@ if isfield(cfg.blp, 'fix_tau') && ~isempty(cfg.blp.fix_tau)
     gopts.sample_tau = false;
     gopts.tau_fixed  = cfg.blp.fix_tau;
 end
-% Blocks held at tau = 1 while the others adapt (cfg.blocks.fixed_tau;
-% see default_config.m).  Empty = the original behaviour.
-fixed_tau_blocks = [];
-if isfield(cfg, 'blocks') && isfield(cfg.blocks, 'fixed_tau') && ~isempty(cfg.blocks.fixed_tau)
-    fixed_tau_blocks = cfg.blocks.fixed_tau(:)';
-    assert(all(fixed_tau_blocks >= 1 & fixed_tau_blocks <= G), ...
-        'estimate_blp_blockadaptive: cfg.blocks.fixed_tau must index blocks 1..%d.', G);
-    gopts.fixed_blocks = fixed_tau_blocks;
-end
+% Cells held at tau = 1 while the others adapt (cfg.blocks.fixed_tau and
+% cfg.blocks.fixed_tau_mask, union) and the equation subset to estimate
+% (cfg.blp.equations); see default_config.m.  All empty = the original
+% behaviour: the sampler is called with an empty fixed_blocks list, which
+% it treats exactly like an absent one, for every equation.
+[fixed_tau_blocks, held_mask, fixed_by_eq, eq_set] = ...
+    resolve_blp_cell_options(cfg, K, G, 'estimate_blp_blockadaptive');
 
 theta_mean = zeros(K, H + 1);  theta_med = zeros(K, H + 1);
 theta_rb = zeros(K, H + 1);  theta_dm = zeros(K, H + 1);
@@ -271,10 +290,11 @@ for h = 1:H
         wNW = (Ltr + 1 - (1:Ltr)) / (Ltr + 1);
     end
 
-    for i = 1:K
+    for i = eq_set
         yh = Yh(:, i);
         prior.mu       = Mu(:, i);
         prior.block_id = bp.block_id;
+        gopts.fixed_blocks = fixed_by_eq{i};     % cells held at tau = 1 in eq. i
 
         if fmar
             % d_j = 1/psi_v for a coefficient on any lag of variable v;
@@ -382,6 +402,24 @@ for h = 1:H
     end
 end
 
+% Equations not estimated (cfg.blp.equations): NaN in every per-equation
+% output; h = 0 and prior_theta stay filled.  No-op when eq_set = 1:K.
+skip = setdiff(1:K, eq_set);
+if ~isempty(skip)
+    theta_mean(skip, 2:end) = NaN;  theta_med(skip, 2:end) = NaN;
+    theta_rb(skip, 2:end) = NaN;    theta_dm(skip, 2:end) = NaN;
+    theta_cond(skip, 2:end) = NaN;
+    lo(skip, 2:end) = NaN;          hi(skip, 2:end) = NaN;
+    lo_post(skip, 2:end) = NaN;     hi_post(skip, 2:end) = NaN;
+    lambda_used(skip, :) = NaN;
+    tau_mean(skip, :, :) = NaN;     tau_med(skip, :, :) = NaN;
+    tau_q(skip, :, :, :) = NaN;     p_tau_gt1(skip, :, :) = NaN;
+    beta_block(skip, :, :) = NaN;   beta_all(:, skip, :) = NaN;
+    lag1(skip, :) = NaN;            ess_beta(skip, :) = NaN;
+    ess_rb(skip, :) = NaN;          post_sd(skip, :) = NaN;
+    mcse_rb(skip, :) = NaN;         ess_logtau(skip, :, :) = NaN;
+end
+
 blp.theta_mean  = theta_mean;
 blp.theta_med   = theta_med;
 blp.theta_rb    = theta_rb;
@@ -402,6 +440,8 @@ blp.tau_q       = tau_q;
 blp.tau_probs   = gopts.tau_probs(:)';
 blp.p_tau_gt1   = p_tau_gt1;
 blp.fixed_tau_blocks = fixed_tau_blocks;   % blocks held at tau = 1 ([] = none)
+blp.fixed_tau_mask   = held_mask;          % (K x G) cells held at tau = 1
+blp.equations        = eq_set;             % equations actually estimated
 blp.theta_cond  = theta_cond;
 blp.diag.lag1_acorr = lag1;
 blp.diag.ess_beta   = ess_beta;   % ESS of the raw IRF draws
@@ -415,7 +455,8 @@ if cfg.blp.return_draws
     blp.draws = draws;
 end
 
-assert(all(isfinite(theta_mean(:))), ...
+th_est = theta_mean(eq_set, :);
+assert(all(isfinite(th_est(:))), ...
     'estimate_blp_blockadaptive: non-finite estimates.');
 end
 

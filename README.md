@@ -1,5 +1,7 @@
 # Block-Adaptive Bayesian Local Projections — research prototype
 
+> **2026-09-13 — v2 empirical redesign prepared (awaiting the 1-month OIS level).** The surprise leaves the VAR state vector and becomes an external instrument used only at identification; the 1-month OIS surprise is rebuilt from the full EA-EMPD workbook (day-count adjusted, with speeches) and aggregated to match the indicator's timing convention; relevance/placebo/influence diagnostics, an LP-IV benchmark with Anderson–Rubin sets, null-calibrated cross-*p* comparison and an out-of-sample block-ablation validation are in place. See `empirical/docs/CH7_REDESIGN.md`, `CH7_LITERATURE.md`, `MONDAY_DATA_CHECKLIST.md`. The 2026-09-12 run is kept as the legacy baseline.
+
 Companion code for the MSc thesis project *"Where Does the VAR Prior Fail?
 Block-Adaptive Bayesian Local Projections under Sparse Dynamic
 Misspecification."*

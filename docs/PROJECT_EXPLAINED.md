@@ -412,3 +412,28 @@ paths, so it runs from any directory)
   framing, the euro-area first pass). `presentation/thesis_pitch.tex` is
   the 8 September 2026 version, kept for the record; its roadmap items are
   done and its numbers predate the fair-benchmark revision.
+
+## Addendum (2026-09-13): the v2 empirical design in plain words
+
+The v1 chapter put the monthly policy surprise *inside* the VAR as the first
+variable. That made the surprise's own lag block part of the prior and of the
+tau map, which is not what we want to diagnose. In v2 the VAR and the local
+projections contain only the macro variables (policy rate, output, prices,
+stocks, and optionally loans and a lending spread). The surprise is used once:
+we regress the VAR's one-step surprises (innovations) on the instrument, which
+tells us how a "1 pp surprise-induced move in the policy rate" moves every
+other variable on impact; the horizon-h responses are then the local-projection
+coefficient blocks times that impact vector. The tau map, the tightness and the
+null are exactly what they were for a system without an instrument, so nothing
+about the specification diagnostic depends on how strong the instrument is;
+only the IRFs do, and their strength is now a reported number (the first-stage
+F) with weak-instrument-robust confidence sets alongside.
+
+The instrument itself is rebuilt: the 1-month OIS move around each event,
+scaled by 30/(30 − days to the next meeting) as in Altavilla et al., speeches
+included, and summed within the month when the policy rate is measured at the
+end of the month, or spread across the current and the next month in
+proportion to the days affected when the rate is a monthly average (Kilian's
+argument). Files: `empirical/data/build_instrument_series.m`,
+`ea_identify_proxy.m`, `ea_relevance_iv.m`, `assemble_dataset_v2.m`,
+`empirical/RUN_EMPIRICAL_IV.m`, `empirical/montecarlo/run_block_ablation.m`.

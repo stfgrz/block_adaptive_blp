@@ -72,6 +72,16 @@ cfg.blocks.scheme = 'per_variable';
 % pushed the adaptive IRFs onto the BVAR while the global BLP followed
 % the LP.  Held blocks report tau = 1 and P(tau > 1) = 0.
 cfg.blocks.fixed_tau = [];
+% Per-CELL version of the same switch: a (K x G) LOGICAL matrix, equation
+% by block (G = K under 'per_variable'), true where cell (i, g) is held at
+% tau = 1.  A cell is held if EITHER this mask OR fixed_tau says so
+% (union).  Used by the out-of-sample block ablation
+% (empirical/montecarlo/run_block_ablation.m), which forces ONE escaping
+% cell back onto the global prior and asks whether the forecasts of that
+% equation get worse.  Empty (default) = no per-cell holds.  Resolved,
+% together with fixed_tau and cfg.blp.equations, in
+% utils/resolve_blp_cell_options.m.
+cfg.blocks.fixed_tau_mask = [];
 
 % ---------------------------------------------------------------------
 % Prior / global tightness (lambda_h)
@@ -95,6 +105,14 @@ cfg.blp.intercept_scale = 10;
 % If true, return full posterior draws inside estimator outputs
 % (memory heavy in Monte Carlo; keep false there).
 cfg.blp.return_draws = false;
+
+% Equations the two block-adaptive estimators sample ([] = all).  Skipped
+% equations return NaN in every per-equation output (tau included; the
+% h = 0 row and prior_theta are still filled for all).  Lets the block
+% ablation re-estimate ONE equation at a fraction of the cost.  Skipped
+% equations consume no random draws, so the estimated equations are not
+% draw-identical to a full run under the same seed.
+cfg.blp.equations = [];
 
 % Probabilities at which the posterior of every tau_{i,g,h} is
 % summarised (reported by both block-adaptive estimators and by

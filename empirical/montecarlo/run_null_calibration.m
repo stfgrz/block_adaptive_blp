@@ -81,11 +81,17 @@ function null = run_null_calibration(cfg_over)
 %                       lambda_h path, and with it the whole tau scale,
 %                       is different.  Output names carry _nofloor when
 %                       false, exactly as RUN_EMPIRICAL's do.
-%   fixed_tau    1      blocks held at tau = 1 (cfg.blocks.fixed_tau); the
-%                       default holds the surprise block, as RUN_EMPIRICAL
-%                       does.  Pass [] for a system without an instrument
-%                       (the level system); output names then carry
-%                       _allblocks unless a stem is given.
+%   fixed_tau    'auto' blocks held at tau = 1 (cfg.blocks.fixed_tau).  The
+%                       default depends on the DATASET: the legacy
+%                       5-variable system (surprise first) holds block 1,
+%                       as RUN_EMPIRICAL does; a dataset that marks itself
+%                       instrument-free (ds.instrument_free = true, a
+%                       ds.shock_variant starting with 'none', or a v2
+%                       ds.system field) holds nothing.  Pass [] for a
+%                       legacy system without an instrument (the level
+%                       system); output names then carry _allblocks unless
+%                       a stem is given.  Instrument-free datasets get no
+%                       _allblocks suffix (they set their own stem).
 %   stem         ''     override the whole output stem (e.g. 'p12_levels'
 %                       for the level system); '' = built from p,
 %                       psi_floor, fixed_tau and tag as described below.
@@ -108,9 +114,10 @@ function null = run_null_calibration(cfg_over)
 %   sim_method   'resample'
 % All default paths are ABSOLUTE, so this runs from any directory.  The
 % checkpoint is only resumed when its stored design (n_rep, p, H, pooled
-% flag, h1_mode, psi_floor, chain lengths, seed, dataset) matches the
-% current run, so a p = 2 checkpoint can never be silently continued as a
-% p = 12 one.
+% flag, h1_mode, psi_floor, chain lengths, seed, dataset, design key)
+% matches the current run, so a p = 2 checkpoint can never be silently
+% continued as a p = 12 one.  (Checkpoints written before the design key
+% existed do not match and start afresh; completed runs are unaffected.)
 %
 % RUNTIME
 % -------
@@ -127,8 +134,13 @@ function null = run_null_calibration(cfg_over)
 %       (K x G), .pgt1_mean, .pgt1_q95 (K x G), .argmax_freq (K x G),
 %       .maxstat_q95, .pflag_q95, .coverage_under_null (K x 1),
 %       .tau_bar_draws, .pgt1_draws (R x K x G)
-%   null.h_early, .n_rep, .p, .H, .h1_mode, .psi_floor, .varnames,
+%   null.h_early, .n_rep, .p, .H, .T, .h1_mode, .psi_floor, .varnames,
 %   .gibbs_n_burn/keep, .design, .rep_bvar_lambda, .rep_lambda_multimodal
+%   null.design_key, .design_info : the canonical design identifier of
+%       ea_design_key (varnames, T, p, H, h_early, h1_mode, psi_floor,
+%       fixed_tau, isrw; NOT the chain lengths).  ea_apply_protocol
+%       refuses to read this null against a run with a different key.
+%       The key is also written to results/null_calibration_<stem>.key.txt.
 %   For backward compatibility the block-estimator fields are also copied
 %   to the top level (null.q95 etc.).
 
@@ -146,7 +158,7 @@ cfg = merge_struct(cfg, cfg_over);
 
 nd = struct('n_rep', 200, 'p', 12, 'H', 12, 'h_early', [2 12], ...
             'pooled', true, 'h1_mode', 'lp', 'psi_floor', true, ...
-            'fixed_tau', 1, 'stem', '', ...
+            'fixed_tau', 'auto', 'stem', '', ...
             'gibbs_n_burn', 300, 'gibbs_n_keep', 700, ...
             'seed', 20260901, 'checkpoint_every', 10, 'resume', true, ...
             'dataset', P.dataset, 'tag', '', ...
@@ -162,24 +174,8 @@ if isfield(cfg_over, 'p'), cfg.null.p = cfg_over.p; end
 cfg.p = cfg.null.p;
 cfg.fmar.h1_mode = cfg.null.h1_mode;
 cfg.fmar.psi_floor = logical(cfg.null.psi_floor);
-cfg.blocks.fixed_tau = cfg.null.fixed_tau;
 
-if ~isempty(cfg.null.stem)
-    stem = cfg.null.stem;
-else
-    stem = sprintf('p%d', cfg.p);
-    if ~cfg.fmar.psi_floor, stem = [stem '_nofloor']; end
-    if isempty(cfg.blocks.fixed_tau), stem = [stem '_allblocks']; end
-    stem = [stem cfg.null.tag];
-end
-if isempty(cfg.null.out_mat)
-    cfg.null.out_mat = fullfile(P.results, sprintf('null_calibration_%s.mat', stem));
-end
-if isempty(cfg.null.out_csv)
-    cfg.null.out_csv = fullfile(P.results, sprintf('null_thresholds_%s.csv', stem));
-end
-
-% --- data and null-run configuration ---------------------------------------
+% --- the dataset (loaded first: the fixed_tau default and the stem depend on it)
 assert(exist(cfg.null.dataset, 'file') == 2, ...
        ['run_null_calibration: %s not found.\n' ...
         'Build it first: build_shock_series(); fetch_outcome_data(); ' ...
@@ -189,6 +185,33 @@ if isfield(ds, 'synthetic') && ds.synthetic
     error(['run_null_calibration: %s is a SYNTHETIC FIXTURE; no empirical ' ...
            'threshold may be produced from it.'], cfg.null.dataset);
 end
+% A dataset without an instrument block: v2 datasets (ds.system), or one
+% that says so (ds.instrument_free, ds.shock_variant 'none...').
+instrument_free = (isfield(ds, 'instrument_free') && all(logical(ds.instrument_free(:)))) || ...
+                  (isfield(ds, 'shock_variant') && ischar(ds.shock_variant) && ...
+                   strncmpi(ds.shock_variant, 'none', 4)) || ...
+                  isfield(ds, 'system');
+if ischar(cfg.null.fixed_tau) && strcmp(cfg.null.fixed_tau, 'auto')
+    if instrument_free, cfg.null.fixed_tau = []; else, cfg.null.fixed_tau = 1; end
+end
+cfg.blocks.fixed_tau = cfg.null.fixed_tau;
+
+if ~isempty(cfg.null.stem)
+    stem = cfg.null.stem;
+else
+    stem = sprintf('p%d', cfg.p);
+    if ~cfg.fmar.psi_floor, stem = [stem '_nofloor']; end
+    if isempty(cfg.blocks.fixed_tau) && ~instrument_free, stem = [stem '_allblocks']; end
+    stem = [stem cfg.null.tag];
+end
+if isempty(cfg.null.out_mat)
+    cfg.null.out_mat = fullfile(P.results, sprintf('null_calibration_%s.mat', stem));
+end
+if isempty(cfg.null.out_csv)
+    cfg.null.out_csv = fullfile(P.results, sprintf('null_thresholds_%s.csv', stem));
+end
+
+% --- null-run configuration -------------------------------------------------
 Y0 = ds.Y;
 [T, K] = size(Y0);
 if isfield(cfg, 'fmar'), cfg.fmar.isrw = ds.isrw; end   % 1 x K, mixed centre
@@ -208,6 +231,12 @@ fprintf('run_null_calibration: K = %d, T = %d, p = %d, H = %d, R = %d, pooled = 
 fprintf('  dataset %s; outputs *_%s\n', cfg.null.dataset, stem);
 fprintf('  thresholds are only valid for a real-data run at the SAME p, h1_mode and psi_floor.\n');
 
+% --- the design key: what this null is valid for (ea_design_key) --------------
+h1 = cfg.null.h_early(1);  h2 = min(cfg.null.h_early(2), cfg.H);
+[design_key, design_info] = ea_design_key(ds, cfg, struct('h_early', [h1 h2], ...
+                                                          'include_chains', false));
+fprintf('  design key: %s\n', design_key);
+
 % --- the pseudo-true VAR: fitted on the REAL data ---------------------------
 rng(cfg.null.seed, 'twister');
 bvar0 = estimate_bvar_niw(Y0, cfg);
@@ -215,7 +244,6 @@ fprintf('  fitted BVAR: lambda = %.3f, max |eig| = %.4f\n', bvar0.lambda, bvar0.
 
 % --- replication loop with checkpointing ------------------------------------
 R  = cfg.null.n_rep;
-h1 = cfg.null.h_early(1);  h2 = min(cfg.null.h_early(2), cfg.H);
 G  = K;                                        % per-variable blocks
 tau_all   = nan(R, K, G, cfg.H);               % tau_mean at h = 1..H (independent)
 pg_all    = nan(R, K, G, cfg.H);               % P(tau > 1)
@@ -235,7 +263,7 @@ design = struct('n_rep', R, 'p', cfg.p, 'H', cfg.H, 'pooled', want_pooled, ...
                 'fixed_tau', cfg.blocks.fixed_tau(:)', ...
                 'gibbs_n_burn', cfg.gibbs.n_burn, 'gibbs_n_keep', cfg.gibbs.n_keep, ...
                 'seed', cfg.null.seed, 'sim_method', cfg.null.sim_method, ...
-                'dataset', cfg.null.dataset);
+                'dataset', cfg.null.dataset, 'design_key', design_key);
 if cfg.null.resume && exist(ck, 'file') == 2
     L = load(ck);
     if isfield(L, 'design') && isequal(L.design, design)
@@ -292,7 +320,8 @@ if want_pooled
     null.pooled = null_stats(tau_all_p, pg_all_p, cover_all_p, h1, h2);
 end
 null.h_early = [h1 h2];
-null.n_rep = R;  null.p = cfg.p;  null.H = cfg.H;
+null.n_rep = R;  null.p = cfg.p;  null.H = cfg.H;  null.T = T;
+null.design_key = design_key;  null.design_info = design_info;
 null.h1_mode = cfg.fmar.h1_mode;
 null.psi_floor = cfg.fmar.psi_floor;
 null.fixed_tau = cfg.blocks.fixed_tau(:)';   % blocks held at tau = 1 (no signal there)
@@ -312,6 +341,18 @@ for f = {'q90', 'q95', 'q99', 'tau_bar_mean', 'argmax_freq', 'maxstat_q95', ...
 end
 
 save(cfg.null.out_mat, '-struct', 'null');
+
+% sidecar: the design key in plain text, next to the .mat
+key_txt = [regexprep(cfg.null.out_mat, '\.mat$', '') '.key.txt'];
+fid = fopen(key_txt, 'w');
+if fid > 0
+    fprintf(fid, '%s\n', design_key);
+    fprintf(fid, '# null_calibration stem %s, R = %d, chains %d+%d (chains are not part of the key)\n', ...
+            stem, R, cfg.gibbs.n_burn, cfg.gibbs.n_keep);
+    fclose(fid);
+else
+    fprintf('  (could not write %s)\n', key_txt);
+end
 
 % threshold table (long format, thesis Table appendix + reading protocol)
 fid = fopen(cfg.null.out_csv, 'w');

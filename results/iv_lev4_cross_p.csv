@@ -1,0 +1,10 @@
+# raw tau_bar is not comparable across designs: only ratio_q95, null percentiles and counts are (each design against its own null)
+design,scale_estimator,p,n_free_cells,n_escape_q95,n_escape_holm,n_eq_flag,max_ratio_q95,median_ratio_q95,top1,top2,top3,key_status
+"lev4 p=2",block,2,16,1,0,1,1.09334,0.52639,hicp<-hicp(1.09),hicp<-i1y(0.76),stoxx<-i1y(0.75),match
+"lev4 p=2",pooled,2,16,1,0,1,1.12072,0.39338,hicp<-hicp(1.12),ip<-hicp(0.70),hicp<-i1y(0.68),match
+"lev4 p=4",block,4,16,1,0,1,1.12824,0.51564,hicp<-hicp(1.13),i1y<-i1y(0.86),stoxx<-i1y(0.81),match
+"lev4 p=4",pooled,4,16,1,0,1,1.11278,0.28362,hicp<-hicp(1.11),stoxx<-i1y(0.76),ip<-hicp(0.73),match
+"lev4 p=6",block,6,16,1,1,1,1.32838,0.49697,hicp<-hicp(1.33),ip<-hicp(0.81),hicp<-ip(0.62),match
+"lev4 p=6",pooled,6,16,1,0,1,1.18317,0.35026,hicp<-hicp(1.18),ip<-hicp(0.74),hicp<-ip(0.50),match
+"lev4 p=12",block,12,16,1,1,1,1.60275,0.47352,hicp<-hicp(1.60),ip<-i1y(0.93),ip<-ip(0.68),match
+"lev4 p=12",pooled,12,16,1,1,1,1.55142,0.35706,hicp<-hicp(1.55),ip<-i1y(0.90),ip<-ip(0.65),match

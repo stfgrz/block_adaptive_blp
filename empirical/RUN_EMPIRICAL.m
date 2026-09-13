@@ -1,5 +1,11 @@
 % RUN_EMPIRICAL  Chapter 7 driver: block-adaptive BLP on euro-area data.
 %
+% *** LEGACY BASELINE (v1, 2026-09-12): the surprise is an INTERNAL instrument
+% *** ordered first in the VAR.  Kept unchanged as the reference point.  The
+% *** redesign (external instrument, 1M OIS, matched aggregation) is
+% *** RUN_EMPIRICAL_IV.m; see docs/CH7_REDESIGN.md.  Outputs of this file
+% *** keep their p12* names; the v2 driver writes iv_* files.
+%
 % Design document: docs/CH7_DESIGN.md.  Integration notes, data status and
 % verified repo signatures: README_EMPIRICAL.md.
 %

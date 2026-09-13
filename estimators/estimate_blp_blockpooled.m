@@ -71,6 +71,12 @@ function blp = estimate_blp_blockpooled(Y, cfg, bvar, lambda_mat)
 %   .kappa_mean (K x G)  posterior mean smoothing sd of log tau
 %   .diag.acc_rate (K x G x H)   Metropolis acceptance rates
 %   .diag.ess_logtau (K x G x H) effective sample size of log tau
+% The cell restrictions of estimate_blp_blockadaptive apply here too, read
+% by the same utils/resolve_blp_cell_options.m: cfg.blocks.fixed_tau and
+% cfg.blocks.fixed_tau_mask (union; held cells report tau = 1 at every h
+% and P(tau > 1) = 0; returned as .fixed_tau_mask) and cfg.blp.equations
+% (skipped equations return NaN in every per-equation output, kappa_mean
+% and the Metropolis diagnostics included; returned as .equations).
 %
 % DIMENSIONS
 % ----------
@@ -122,15 +128,12 @@ if isfield(cfg.blp, 'fix_tau') && ~isempty(cfg.blp.fix_tau)
     gopts.sample_tau = false;
     gopts.tau_fixed  = cfg.blp.fix_tau;
 end
-% Blocks held at tau = 1 while the others adapt (cfg.blocks.fixed_tau;
-% see default_config.m).  Empty = the original behaviour.
-fixed_tau_blocks = [];
-if isfield(cfg, 'blocks') && isfield(cfg.blocks, 'fixed_tau') && ~isempty(cfg.blocks.fixed_tau)
-    fixed_tau_blocks = cfg.blocks.fixed_tau(:)';
-    assert(all(fixed_tau_blocks >= 1 & fixed_tau_blocks <= G), ...
-        'estimate_blp_blockpooled: cfg.blocks.fixed_tau must index blocks 1..%d.', G);
-    gopts.fixed_blocks = fixed_tau_blocks;
-end
+% Cells held at tau = 1 while the others adapt (cfg.blocks.fixed_tau and
+% cfg.blocks.fixed_tau_mask, union) and the equation subset to estimate
+% (cfg.blp.equations); see default_config.m.  All empty = the original
+% behaviour (an empty fixed_blocks list is "absent" to the sampler).
+[fixed_tau_blocks, held_mask, fixed_by_eq, eq_set] = ...
+    resolve_blp_cell_options(cfg, K, G, 'estimate_blp_blockpooled');
 if isfield(cfg.blp, 'tau_probs') && ~isempty(cfg.blp.tau_probs)
     tau_probs = cfg.blp.tau_probs;
 else
@@ -198,7 +201,8 @@ lag1 = zeros(K, H);  ess_proj = zeros(K, H);  ess_rb = zeros(K, H);
 post_sd = zeros(K, H);  mcse_rb = zeros(K, H);  n_clip = 0;
 
 % --- one joint chain per equation ---------------------------------------
-for i = 1:K
+for i = eq_set
+    gopts.fixed_blocks = fixed_by_eq{i};         % cells held at tau = 1 in eq. i
     hdata = struct('y', cell(1, H), 'Z', cell(1, H), 'mu', cell(1, H), ...
                    'd', cell(1, H), 'lambda', cell(1, H), ...
                    'a0', cell(1, H), 'b0', cell(1, H));
@@ -281,6 +285,24 @@ for i = 1:K
     n_clip = n_clip + out.diag.n_tau_clip;
 end
 
+% Equations not estimated (cfg.blp.equations): NaN in every per-equation
+% output; h = 0, prior_theta and lambda stay filled.  No-op when eq_set = 1:K.
+skip = setdiff(1:K, eq_set);
+if ~isempty(skip)
+    theta_mean(skip, 2:end) = NaN;  theta_med(skip, 2:end) = NaN;
+    theta_rb(skip, 2:end) = NaN;    theta_dm(skip, 2:end) = NaN;
+    theta_cond(skip, 2:end) = NaN;
+    lo(skip, 2:end) = NaN;          hi(skip, 2:end) = NaN;
+    lo_post(skip, 2:end) = NaN;     hi_post(skip, 2:end) = NaN;
+    tau_mean(skip, :, :) = NaN;     tau_med(skip, :, :) = NaN;
+    tau_q(skip, :, :, :) = NaN;     p_tau_gt1(skip, :, :) = NaN;
+    beta_all(:, skip, :) = NaN;     kappa_mean(skip, :) = NaN;
+    acc_rate(skip, :, :) = NaN;     acc_level(skip, :) = NaN;
+    ess_logtau(skip, :, :) = NaN;   lag1(skip, :) = NaN;
+    ess_proj(skip, :) = NaN;        ess_rb(skip, :) = NaN;
+    post_sd(skip, :) = NaN;         mcse_rb(skip, :) = NaN;
+end
+
 blp.theta_mean  = theta_mean;
 blp.theta_med   = theta_med;
 blp.theta_cond  = theta_cond;
@@ -296,6 +318,8 @@ blp.tau_mean    = tau_mean;    blp.tau_med  = tau_med;
 blp.tau_q       = tau_q;       blp.tau_probs = tau_probs(:)';
 blp.p_tau_gt1   = p_tau_gt1;
 blp.fixed_tau_blocks = fixed_tau_blocks;   % blocks held at tau = 1 ([] = none)
+blp.fixed_tau_mask   = held_mask;          % (K x G) cells held at tau = 1
+blp.equations        = eq_set;             % equations actually estimated
 blp.kappa_mean  = kappa_mean;
 blp.pool        = pool;
 blp.diag.lag1_acorr = lag1;
@@ -309,7 +333,8 @@ blp.diag.mcse_rb    = mcse_rb;   % Monte Carlo se of the reported mean
 blp.diag.mcse_ratio = mcse_rb ./ max(post_sd, realmin);
 blp.diag.n_tau_clip = n_clip;
 
-assert(all(isfinite(theta_mean(:))), ...
+th_est = theta_mean(eq_set, :);
+assert(all(isfinite(th_est(:))), ...
     'estimate_blp_blockpooled: non-finite estimates.');
 end
 

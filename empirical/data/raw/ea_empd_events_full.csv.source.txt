@@ -1,0 +1,4 @@
+file        = ea_empd_events_full.csv
+series      = EA-EMPD (Altavilla, Gurkaynak, Kind & Laeven 2025, 'Monetary Transmission with Frequent Policy Events'), sheet 'EA-EMPD', ALL 54 columns of the workbook EA-EMPD.en.xlsx (file dated 2025-10-30 last event; downloaded 2026-09-01)
+source_url  = https://www.ecb.europa.eu/pub/pdf/annex/Dataset_EA-EMPD.xlsx (ECB EA-EMPD page; the workbook on disk was ~/Downloads/EA-EMPD.en.xlsx)
+recorded_at = 2026-09-13; extracted with openpyxl 3.1.5, values unchanged (floats rounded to 10 dp), Date_time as yyyy-mm-dd HH:MM:SS, missing = empty field

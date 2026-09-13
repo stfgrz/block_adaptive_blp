@@ -62,6 +62,14 @@ and verified estimator signatures: `README_EMPIRICAL.md`.
 >
 > The shock-series statistics in Sec. 1 are real and reproduce exactly.
 
+> **Update (2026-09-13): v2 redesign.** This document describes the v1
+> design (internal instrument), kept as the legacy baseline. The external-
+> instrument redesign, the 1-month OIS instrument and indicator, the matched
+> monthly aggregation and the validation additions are specified in
+> `CH7_REDESIGN.md`, with sources in `CH7_LITERATURE.md`. One correction to
+> Sec. 2 below: AGKL do *not* impose zero restrictions on lagged surprises
+> (verified in their text); their restriction is the contemporaneous ordering.
+
 ---
 
 ## 0. Headline claim and scope

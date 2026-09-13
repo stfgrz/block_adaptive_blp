@@ -9,6 +9,8 @@ empirical/data/ea_dataset*.mat
 # redistributed with the repo.  The EA-EMPD event file IS shipped.
 empirical/data/raw/*.csv
 !empirical/data/raw/ea_empd_events.csv
+!empirical/data/raw/ea_empd_events_full.csv
+!empirical/data/raw/ea_empd_events_full.csv.source.txt
 empirical/data/raw/rejected/
 
 # Monte Carlo chunk files and worker logs (intermediate; the merged
@@ -26,3 +28,6 @@ octave-workspace
 
 # smoke-preset outputs are throwaway
 results/mc_smoke_*
+
+# QUICK = true runs of RUN_EMPIRICAL_IV are interface checks, never results
+results/*_quick*

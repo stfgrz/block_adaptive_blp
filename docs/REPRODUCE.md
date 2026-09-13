@@ -215,3 +215,30 @@ The fixture is simulated data stamped `ds.synthetic = true`, and both
 `RUN_EMPIRICAL` and `SMOKE_TEST_EMPIRICAL` refuse a dataset carrying
 that stamp. **No empirical result in this project may be produced from
 it.** See `empirical/README_EMPIRICAL.md`.
+
+## 7. v2 empirical pipeline (external instrument; prepared 2026-09-13)
+
+Design: `empirical/docs/CH7_REDESIGN.md`; literature: `empirical/docs/CH7_LITERATURE.md`;
+what to obtain on Monday: `empirical/docs/MONDAY_DATA_CHECKLIST.md`. The v1 driver and its
+`p12*` outputs are the untouched legacy baseline. Everything below writes `results/iv_*`.
+
+```matlab
+addpath(genpath('/Users/stefanograziosi/Documents/GitHub/block_adaptive_blp'))
+build_instrument_series();                           % 34 monthly instruments from the full EA-EMPD extract (shipped)
+assemble_dataset_v2(struct('system', 'lev4'));       % {i1y, ip, hicp, stoxx} + instruments in ds.Z   (runs today)
+assemble_dataset_v2(struct('system', 'lev4_yoy'));   % HICP as year-on-year inflation                  (runs today)
+SYSTEM = 'lev4'; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))   % steps REL A B C D E, ~25 min
+```
+
+Nulls for each design (one per p; `run_null_calibration` stores a design key that the
+protocol checks):
+
+```matlab
+for p = [2 4 6 12], run_null_calibration(struct('p', p, 'null', struct('n_rep', 200, ...
+    'dataset', fullfile(ea_paths().data, 'ea_dataset_v2_lev4.mat'), 'stem', sprintf('iv_lev4_p%d', p)))); end
+SYSTEM = 'lev4'; DO_REL = false; DO_A = false; DO_C = false; DO_E = false; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))
+```
+
+Quick interface check on the real data (minutes, meaningless numbers): `QUICK = true; SYSTEM = 'lev4'; run(...RUN_EMPIRICAL_IV.m)`.
+The `ois4` / `ois6` systems need the daily `EUREON1M=` file and `ea_fetch_v2_series()`; see the checklist.
+Tests added: `test_fixed_tau_mask`, `test_null_modularity`, `test_lp_iv`, `test_empirical_iv` (all in `run_all_tests`).

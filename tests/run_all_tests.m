@@ -46,7 +46,16 @@ test_psi_floor();           % the optional prior-scale floor: inert on the
                             % the euro-area data need it
 test_fixed_tau_blocks();    % holding chosen blocks at tau = 1 (the
                             % instrument block in the empirical chapter)
+test_fixed_tau_mask();      % per-cell holds, equation subset, and the
+                            % out-of-sample block ablation (smoke)
 test_empirical_pipeline();  % Ch. 7 package on a synthetic fixture
+test_null_modularity();     % design key, protocol counts, cross-design
+                            % table on in-memory fakes
+test_lp_iv();               % frequentist LP-IV benchmark: consistency,
+                            % Gamma_h b_z equivalence, AR set, NaN handling
+test_empirical_iv();        % v2 external-instrument package on synthetic
+                            % inputs (instruments, OIS import, proxy id,
+                            % relevance/placebo, driver refuses synthetic)
 
 fprintf('==============================================\n');
 fprintf(' ALL TESTS PASSED\n');

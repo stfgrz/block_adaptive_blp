@@ -406,3 +406,232 @@ projections to internal-instrument designs, not about the euro area.
   this also removes the remaining drag on `lambda_h` (Section 2).
 * Robustness listed in the design and not yet run: `mps_gc_3m`,
   `mps_all_1y` (speeches), and a `K = 7` system with loans and spreads.
+
+---
+
+# v2 preview (2026-09-13): external-instrument design run on the data available today
+
+**Read this section as a dress rehearsal, not as the result.** The v2
+design (`CH7_REDESIGN.md`) pairs a 1-month OIS surprise with a 1-month OIS
+level; the level series arrives on Monday. Everything below uses the
+**legacy indicator** (12-month Euribor, monthly average of an 11:00 CET
+fixing) in the instrument-free four-variable systems `lev4 = {i1y, ip,
+hicp, stoxx}` (the step-F "level system" of v1, now the core) and
+`lev4_yoy` (HICP as year-on-year inflation). The headline instrument is
+fixed by the pre-specified rule, not by the F statistic: maturity matched
+to the indicator (1-year), speeches included, day-weighted aggregation for
+a monthly-average indicator whose fixing precedes the events
+(`z_gcs_1y_kilianfix`). Files: `results/iv_lev4_p12_*`,
+`results/iv_lev4_yoy_p12_*`, `results/ablation_iv_*`,
+`results/iv_lev4_cross_p.csv`, nulls `results/null_calibration_iv_*`.
+
+## V2.1 The instrument panel
+
+`build_instrument_series` on the full workbook, window 2001m1–2019m12: 221
+GC monetary-event windows (216 with a 1M quote); 1,608 speeches pass the
+AGKL filters, of which 1,021 have an adjusted 1M surprise (241 dropped
+because the next meeting is 30 or more days away, 151 because the day-count
+factor exceeds 6). JK's poor-man's rule keeps 127 of 216 classifiable GC
+events. The path-proxy regression across GC events is ΔOIS_1Y = −0.06 +
+0.72·ΔOIS_1M(adj). 51 monthly series (17 event-set × surprise × info
+combinations, each in `sum`, `kilian`, `kilianfix`). Standard deviations
+(bp) and zero months:
+
+| series | sd | zero months | corr with legacy `z_gc_1y_sum` |
+|---|---|---|---|
+| `z_gc_1m_adj_sum` | 3.05 | 46 | 0.59 |
+| `z_gc_1m_adj_kilian` | 2.46 | 15 | 0.57 |
+| `z_gcs_1m_adj_sum` | 4.28 | 13 | 0.40 |
+| `z_gcs_1m_adj_kilian` | 3.41 | 1 | 0.39 |
+| `z_gc_1y_sum` (= v1 `mps`, to 5e-7 bp) | 4.29 | 24 | 1.00 |
+| `z_gcs_1y_sum` | 5.12 | 1 | 0.86 |
+| `z_gc_1m_adj_jk_sum` | 2.42 | 129 | 0.47 |
+
+## V2.2 Relevance on the legacy indicator (`lev4`, p = 12)
+
+First stage on the BVAR innovations of the 12M Euribor (HAC t, effective
+F; MOP thresholds 12.05 / 15.06 / 23.11 / 37.42), lead/lag placebo,
+crisis exclusion (2008m9–2009m6) and subsamples, from
+`results/iv_lev4_p12_relevance.csv` (all 102 instruments there; selection
+below):
+
+| instrument | F_eff | t | R² | lead+1 t | lag−1 t | F excl. crisis | F 2001–08 | F 2009–11 | F 2012–19 |
+|---|---|---|---|---|---|---|---|---|---|
+| `z_gc_1y_sum` (legacy) | 0.54 | 0.74 | 0.010 | −1.70 | −0.67 | 12.2 | 0.1 | 11.2 | 6.5 |
+| `z_gc_1y_kilianfix` | 0.52 | 0.72 | 0.011 | −1.12 | −1.30 | 16.6 | 0.1 | 7.4 | 9.0 |
+| `z_gcs_1y_sum` | 2.91 | 1.71 | 0.027 | −1.20 | −0.74 | 7.0 | 1.2 | 4.7 | 9.6 |
+| `z_gcs_1y_kilian` (event day counted) | 5.96 | 2.44 | 0.039 | −0.70 | −0.99 | 16.5 | 3.4 | 4.7 | 10.2 |
+| **`z_gcs_1y_kilianfix`** (headline) | **5.44** | 2.33 | 0.036 | −0.55 | −0.98 | 16.0 | 3.1 | 3.9 | 10.3 |
+| `z_gcs_1y_kilianfix_bs` | 5.38 | 2.32 | 0.038 | −0.01 | −1.14 | 17.7 | 3.0 | 3.6 | 13.4 |
+| `z_gc_1y_jk_kilianfix` | 0.17 | 0.41 | 0.005 | −1.13 | −0.84 | 14.0 | 0.0 | 8.0 | 0.7 |
+| `z_gc_1m_adj_sum` | 0.21 | −0.46 | 0.002 | −1.98 | −0.05 | 0.0 | 2.7 | 14.0 | 13.3 |
+| `z_gc_1m_adj_kilianfix` | 0.00 | 0.01 | 0.000 | −2.10 | −0.69 | 1.6 | 1.4 | 25.0 | 33.5 |
+| `z_gcs_1m_adj_kilianfix` | 1.78 | 1.34 | 0.007 | 0.16 | −0.04 | 0.7 | 0.2 | 5.0 | 0.9 |
+
+Reading, in order of confidence:
+
+1. **The 1-month instruments have no first stage on a 12-month average
+   rate.** Expected: the maturity mismatch (a Target surprise against a
+   1-year rate with a bank credit premium) is what the matched indicator on
+   Monday removes. Their sub-sample F's are large but of unstable sign (the
+   full-sample slope averages to zero), so they are unusable here.
+2. **Speeches plus the matched aggregation move the 1-year instrument from
+   nothing to something.** The headline has F = 5.4 against 0.5 for the
+   legacy series; speeches contribute most (2.9 with the plain sum), the
+   day weighting doubles that; counting or not counting the event day
+   (`kilian` 6.0 vs `kilianfix` 5.4) is second order. Still below every
+   MOP threshold: **weak**. The LP-IV first stage, which conditions on OLS
+   lags rather than on the shrunk BVAR innovations, gives 10.9 for the same
+   instrument (14.3 in `lev4_yoy`).
+3. **Ten crisis months carry the weakness.** Excluding 2008m9–2009m6 the
+   headline has F = 16.0 (legacy series 12.2). The leave-one-out ranking
+   puts 2008m6, 2008m11, 2011m5 and 2011m10 first. This is the euro-area
+   pattern RST attribute to non-linear information effects in crisis events
+   and AGKL note for November 2008. Reported, not used for selection.
+4. **Timing looks right.** No lead of the headline is significant (|t| ≤
+   1.2), nor the k = −1 lag; predictability on pre-event information has
+   p = 0.41; the instrument's AR(1) is 0.17.
+5. The pre-2009 sample is where the 1-year instrument fails (F ≈ 3 in
+   2001–08 against 10 in 2012–19), the opposite of the "ELB kills the short
+   end" worry in the v1 design document.
+
+## V2.3 The tau map, read through its own null
+
+`lev4` at p = 12 (H = 48 for the IRFs), against the dedicated null
+`null_calibration_iv_lev4_p12.mat` (R = 200, design key verified by
+`ea_apply_protocol`; the null runs at H = 12, exact for the independent
+estimator on h ≤ 12 and an approximation for the pooled one).
+Identification does not enter here.
+
+| cell | estimator | τ̄ | null q95 | ratio | null percentile | Holm |
+|---|---|---|---|---|---|---|
+| hicp ← hicp | block | 3.31 | 2.06 | 1.61 | 1.00 | reject |
+| hicp ← hicp | pooled | 3.30 | 2.16 | 1.53 | 1.00 | reject |
+| ip ← i1y | block | 1.80 | 1.97 | 0.92 | 0.93 | — |
+| ip ← i1y | pooled | 1.99 | 2.14 | 0.93 | 0.94 | — |
+| every other free cell | both | | | < 0.7 | | — |
+
+Same picture as v1's level system: one calibrated escape, the HICP own-lag
+block; the rate block in the IP equation sits at the 93rd–94th null
+percentile, short of 95.
+
+## V2.4 IRFs with the headline instrument — preview only
+
+Proxy-identified, 25 bp normalisation on the 12M Euribor, headline
+`z_gcs_1y_kilianfix` (F_eff 5.4 on innovations, 10.9 in LP-IV). Point
+estimate with 90 % band; AR = Anderson–Rubin set (weak-IV robust).
+
+| variable | h | BVAR | BLP-block | LP-IV (HAC) | LP-IV AR set |
+|---|---|---|---|---|---|
+| ip | 0 | −1.16 [−1.82, −0.65] | −1.16 | −1.28 [−2.58, 0.01] | [−3.38, −0.26] |
+| ip | 12 | −0.75 [−2.07, 0.42] | −0.35 [−1.68, 0.98] | −3.01 [−6.52, 0.50] | [−8.56, −0.13] |
+| hicp | 0 | 0.34 [0.16, 0.54] | 0.34 | 0.26 [−0.10, 0.63] | [−0.18, 0.65] |
+| hicp | 12 | 0.04 [−0.23, 0.32] | 0.18 [−0.08, 0.45] | −0.18 [−1.23, 0.88] | [−1.75, 0.75] |
+| stoxx | 0 | 5.46 [3.38, 8.19] | 5.46 | 3.08 [−3.58, 9.74] | [−2.59, 13.20] |
+| stoxx | 12 | −1.00 [−5.92, 4.26] | −0.03 [−7.16, 7.11] | 8.84 [−13.21, 30.90] | [−11.94, 39.69] |
+
+What this says and does not say. The impact vector has the "right" sign
+for output (a 25 bp surprise-induced rise in the 1-year rate lowers IP by
+about 1.2 % on impact, implausibly large: a weak first stage inflating a
+ratio) and the **wrong** sign for stock prices (+5.5 %), with a positive
+price response: the output/price/stock pattern RST and JK attribute to
+information contamination of euro-area surprises. With F between 5 and 11
+and AR sets this wide, none of it is a finding; the only IRF statement the
+protocol licenses today is that the AR set for IP at h = 12 excludes zero
+and the others do not. `ip`'s impact response is the number to watch on
+Monday: with a matched indicator it should shrink towards tenths of a
+percent.
+
+## V2.5 Out-of-sample block ablation (`lev4`, real data)
+
+`run_block_ablation`: 60 expanding-window origins from 2010m1, p = 12,
+forecasts at h = 2..12, the whole pipeline re-estimated at each origin. The
+escaping cell is forced back to τ = 1; a quiet cell (stoxx ← stoxx) is the
+control.
+
+| cell | role | h | MSFE free | MSFE ablated | ratio | DM (HLN) | Clark–West |
+|---|---|---|---|---|---|---|---|
+| hicp ← hicp | escape | 2 | 0.286 | 0.445 | **1.56** | **3.33** | **4.06** |
+| hicp ← hicp | escape | 12 | 2.195 | 2.205 | 1.00 | 0.07 | 0.36 |
+| hicp ← hicp | escape | pooled 2–12 | 1.240 | 1.325 | 1.07 | 1.09 | 2.22 |
+| stoxx ← stoxx | control | 2 | 48.1 | 48.3 | 1.00 | 0.74 | 0.96 |
+| stoxx ← stoxx | control | 12 | 390 | 407 | 1.04 | 1.25 | 1.66 |
+| stoxx ← stoxx | control | pooled 2–12 | 219 | 228 | 1.04 | 1.23 | 1.65 |
+
+Reference MSFEs at h = 2 for HICP: free adaptive 0.286, BLP-FMAR 0.434,
+BVAR 0.528. Forcing the escaping block back onto the global prior costs
+56 % in two-month-ahead squared forecast error and nothing at twelve
+months; forcing the control block costs nothing at either. This is the
+first ground-truth-free validation of an escape in the project: the HICP
+own-lag escape carries short-horizon predictive content.
+
+## V2.6 HICP as year-on-year inflation (`lev4_yoy`)
+
+Same indicator and instrument set, `hicp_yoy` in place of the log level;
+own null `null_calibration_iv_lev4_yoy_p12.mat` (R = 200, key verified).
+The headline first stage is stronger in this system (F = 8.4, t = 2.9;
+21.3 without the crisis months; leads and lags quiet; LP-IV 14.3).
+
+Protocol: two cells exceed their q95, both driven by the rate block —
+ip ← i1y (τ̄ 2.33 vs 1.99, ratio 1.17, 97th percentile) and stoxx ← i1y
+(2.06 vs 1.75, ratio 1.17, 98th percentile) for the independent estimator,
+the same two for the pooled one (1.17, 1.16); **neither survives Holm** over
+the 16 free cells, and 0.8 false escapes are expected at 5 % among 16. The
+HICP-own-lag escape of the level system is gone once seasonality is
+differenced out (hicp_yoy ← hicp_yoy ratio 0.6), which is the expected
+reading of that escape: residual seasonal dynamics in the NSA index that
+the RW-centred VAR(12) prior under-fits.
+
+Ablation of the two flagged cells and a control (60 origins):
+
+| cell | role | h | MSFE free | MSFE ablated | ratio | DM (HLN) | Clark–West |
+|---|---|---|---|---|---|---|---|
+| ip ← i1y | escape | 2 | 1.474 | 1.518 | 1.03 | 2.35 | 2.46 |
+| ip ← i1y | escape | 12 | 58.8 | 49.0 | 0.83 | −0.98 | −1.09 |
+| ip ← i1y | escape | pooled 2–12 | 30.2 | 25.3 | 0.84 | −0.97 | −1.08 |
+| stoxx ← i1y | escape | 2 | 53.0 | 53.9 | 1.02 | 0.89 | 1.11 |
+| stoxx ← i1y | escape | 12 | 1753 | 1323 | 0.75 | −1.45 | −1.72 |
+| stoxx ← i1y | escape | pooled 2–12 | 903 | 688 | 0.76 | −1.46 | −1.72 |
+| hicp_yoy ← i1y | control | 2 | 0.165 | 0.173 | 1.05 | 1.90 | 2.19 |
+| hicp_yoy ← i1y | control | 12 | 6.50 | 6.24 | 0.96 | −0.87 | −1.04 |
+
+Neither borderline escape has predictive content: releasing the block
+costs nothing at two months and *hurts* at twelve (the ablated, tighter
+model forecasts better). The control behaves the same way. Read together
+with the Holm counts, the two flags are what 5 %-level noise among 16
+cells looks like, and the ablation correctly declines to corroborate them.
+The contrast with the level system's HICP cell (V2.5) is the point of the
+exercise.
+
+## V2.7 Cross-p comparison (`lev4`), each design against its own null
+
+`results/iv_lev4_cross_p.csv` (nulls `iv_lev4_p{2,4,6,12}`, R = 200 each,
+design keys matched):
+
+| design | estimator | escapes at q95 | Holm rejections | equations flagged | max ratio (cell) | median ratio |
+|---|---|---|---|---|---|---|
+| p = 2 | block | 1 | 0 | 1 | 1.09 (hicp ← hicp) | 0.53 |
+| p = 2 | pooled | 1 | 0 | 1 | 1.12 (hicp ← hicp) | 0.39 |
+| p = 4 | block | 1 | 0 | 1 | 1.13 (hicp ← hicp) | 0.52 |
+| p = 4 | pooled | 1 | 0 | 1 | 1.11 (hicp ← hicp) | 0.28 |
+| p = 6 | block | 1 | 1 | 1 | 1.33 (hicp ← hicp) | 0.50 |
+| p = 6 | pooled | 1 | 0 | 1 | 1.18 (hicp ← hicp) | 0.35 |
+| p = 12 | block | 1 | 1 | 1 | 1.60 (hicp ← hicp) | 0.47 |
+| p = 12 | pooled | 1 | 1 | 1 | 1.55 (hicp ← hicp) | 0.36 |
+
+The count is flat in p (one escape, always the same cell) and the cell's
+distance from its own null *rises* with p (ratio 1.09 → 1.60), the reverse
+of the v1 pre-registered "lights up at p = 2 and fades" expectation. The
+richer VAR estimates its centre less precisely, the null widens, and the
+HICP own-lag disagreement widens faster still. Raw τ̄ is not reported here
+by design; the per-cell ratios and percentiles are in the csv.
+
+## V2.8 What Monday changes
+
+The matched indicator (`ois1m`, end-of-month) with the matched instrument
+(`z_gcs_1m_adj_sum`) is the pairing AGKL's own first stage uses (F = 4.0
+meetings, 12.6 all events on the 1M OIS). Everything above reruns with
+`SYSTEM = 'ois4'` unchanged; the only design decision still open is whether
+the 2003-start `ois6` system (loans, lending spread) is worth its thinner
+sample. Do not quote any IRF until `F_eff` clears 12 (30 % bias) and
+preferably 23 (10 %); until then the AR sets are the exhibit.
