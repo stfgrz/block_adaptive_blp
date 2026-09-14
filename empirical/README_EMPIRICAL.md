@@ -60,6 +60,21 @@ the 2-month HICP MSFE by 56 %), while the two borderline flags of the
 year-on-year system do not. Proxy-identified IRFs are shown with
 Anderson–Rubin sets and are not quoted as findings at these first stages.
 
+**Monday 2026-09-14: the 1-month OIS is in** (ECB Data Portal copy of the
+Refinitiv series, bid/ask mid) together with the five ECB series and
+Jarociński's shocks. On the matched pairing (end-of-month 1M OIS, adjusted
+1M surprise with speeches, within-month sum) the first stage is F_eff = 13.7
+(LP-IV 19.4) against 0.5 in v1; the sum beats the day-weighted aggregation on
+the end-of-month level as Kilian predicts; the strength is concentrated in
+2009–2011 and one lead placebo is borderline. The proxy IRFs show the
+euro-area information-effect pattern (stocks and output up after a positive
+surprise). The τ map of the headline system, read against its own nulls,
+escapes on the short-rate block of the output and stock equations (Holm-
+significant at p = 12, present at p = 2, absent at p = 4 and 6); the HICP
+seasonal escape disappears with SA prices; the out-of-sample ablation does
+not find predictive content in the new escapes over 2010–2019. See
+`CH7_RESULTS.md`, "Monday run".
+
 New pieces (all in `run_all_tests`):
 
 ```

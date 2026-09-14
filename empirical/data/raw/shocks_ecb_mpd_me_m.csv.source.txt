@@ -1,0 +1,4 @@
+file        = shocks_ecb_mpd_me_m.csv
+series      = Jarocinski & Karadi (2020, AEJ:Macro) ECB monetary policy (MP_*) and central-bank information (CBI_*) shocks, updated; pc1 of OIS 1M/3M/6M/1Y scaled to the OIS-1Y monetary-event-window sd, percent p.a.; STOXX50 100 x log change; CC BY 4.0
+source_url  = https://github.com/marekjarocinski/jkshocks_update_ecb (downloaded by the user on 2026-09-14)
+recorded_at = 2026-09-14

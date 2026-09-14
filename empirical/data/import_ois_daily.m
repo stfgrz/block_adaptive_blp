@@ -13,9 +13,10 @@ function m = import_ois_daily(opts)
 % -----------------------------------------------------------------------
 % Any csv with one date column and one value column (percent per annum):
 %   * header names: the date column is the first column whose name contains
-%     'date', 'time' or 'timestamp' (else column 1); the value column is the
-%     first whose name contains 'close', 'last', 'mid', 'value', 'price' or
-%     'EUREON' (else column 2);
+%     'date', 'time' or 'timestamp' (else column 1); the value is the first
+%     column whose name contains 'close', 'last', 'mid', 'value', 'price' or
+%     'EUREON'; failing that the MID of a 'Bid' and an 'Ask'/'Offer' column
+%     (a lone side is used with a note); failing that column 2;
 %   * date formats: yyyy-mm-dd, yyyy/mm/dd, dd/mm/yyyy, dd.mm.yyyy,
 %     dd-mmm-yyyy (an optional time part is ignored);
 %   * non-numeric or empty values are skipped; the file may be in either
@@ -83,17 +84,40 @@ synthetic = ~isempty(strfind(upper(hdr_line), 'SYNTHETIC'));  %#ok<STREMP>
 lh = lower(hdr);
 c_date = find(~cellfun(@isempty, regexp(lh, 'date|time')), 1);
 if isempty(c_date), c_date = 1; end
-c_val = find(~cellfun(@isempty, regexp(lh, 'close|last|mid|value|price|eureon')), 1);
-if isempty(c_val) || c_val == c_date, c_val = min(2, numel(hdr));  if c_val == c_date, c_val = c_date + 1; end, end
+% value column: an explicit mid/close/last first; otherwise the average of a
+% BID and an ASK column (Refinitiv exports often carry both); otherwise
+% column 2.  A lone bid or ask is used with a note.
+c_val = find(~cellfun(@isempty, regexp(lh, 'close|last|mid|value|price|eureon')) & (1:numel(lh)) ~= c_date, 1);
+c_bid = find(~cellfun(@isempty, regexp(lh, 'bid')), 1);
+c_ask = find(~cellfun(@isempty, regexp(lh, 'ask|offer')), 1);
+value_rule = '';
+if ~isempty(c_val)
+    value_rule = sprintf('column %s', hdr{c_val});
+elseif ~isempty(c_bid) && ~isempty(c_ask)
+    value_rule = sprintf('mid = (%s + %s) / 2', hdr{c_bid}, hdr{c_ask});
+elseif ~isempty(c_bid) || ~isempty(c_ask)
+    c_val = [c_bid c_ask];  c_val = c_val(1);
+    value_rule = sprintf('column %s (only one side of the quote available)', hdr{c_val});
+else
+    c_val = min(2, numel(hdr));  if c_val == c_date, c_val = c_date + 1; end
+    value_rule = sprintf('column %s (positional fallback)', hdr{c_val});
+end
+use_mid = isempty(c_val);
 dn = zeros(0, 1);  val = zeros(0, 1);  n_skip = 0;
 while true
     l = fgetl(fid);
     if ~ischar(l), break; end
     if isempty(strtrim(l)), continue; end
     f = strtrim(regexp(l, delim, 'split'));
-    if numel(f) < max(c_date, c_val), n_skip = n_skip + 1; continue; end
+    if use_mid
+        if numel(f) < max([c_date, c_bid, c_ask]), n_skip = n_skip + 1; continue; end
+        vb = str2double(strrep(f{c_bid}, '"', ''));  va = str2double(strrep(f{c_ask}, '"', ''));
+        if isnan(vb) && isnan(va), v = NaN; elseif isnan(vb), v = va; elseif isnan(va), v = vb; else, v = (vb + va) / 2; end
+    else
+        if numel(f) < max(c_date, c_val), n_skip = n_skip + 1; continue; end
+        v = str2double(strrep(f{c_val}, '"', ''));
+    end
     d = parse_date(f{c_date});
-    v = str2double(strrep(f{c_val}, '"', ''));
     if isnan(d) || isnan(v), n_skip = n_skip + 1; continue; end
     dn(end + 1, 1) = d;  val(end + 1, 1) = v;  %#ok<AGROW>
 end
@@ -147,8 +171,8 @@ if chk.min_val < -2 || chk.max_val > 8
 end
 chk.problems = problems;
 if opts.verbose
-    fprintf('import_ois_daily: %s: %d daily quotes %s..%s, %d skipped rows; max gap %d days; %d moves > 150 bp; range [%.3f, %.3f]%s\n', ...
-            opts.daily_csv, chk.n_days, chk.first, chk.last, n_skip, chk.max_gap_days, chk.n_big_moves, ...
+    fprintf('import_ois_daily: %s: value = %s; %d daily quotes %s..%s, %d skipped rows; max gap %d days; %d moves > 150 bp; range [%.3f, %.3f]%s\n', ...
+            opts.daily_csv, value_rule, chk.n_days, chk.first, chk.last, n_skip, chk.max_gap_days, chk.n_big_moves, ...
             chk.min_val, chk.max_val, tern(synthetic, '  [SYNTHETIC FIXTURE]', ''));
     for i = 1:numel(problems), fprintf('  PROBLEM: %s\n', problems{i}); end
     if isempty(problems), fprintf('  coverage and plausibility checks passed\n'); end
@@ -160,7 +184,7 @@ m = struct('ym', ym, 'year', floor((ym - 1) / 12), 'month', ym - 12 * floor((ym 
            'eom', eom, 'avg', avg, 'first', firstq, 'chg_eom', [NaN; diff(eom)], 'n_days', nd, ...
            'synthetic', synthetic);
 m.meta = struct('daily_csv', opts.daily_csv, 'checks', chk, 'units', 'percent per annum', ...
-                'built_at', datestr(now, 'yyyy-mm-dd HH:MM:SS'), 'date_col', hdr{c_date}, 'value_col', hdr{c_val});  %#ok<TNOW1,DATST>
+                'built_at', datestr(now, 'yyyy-mm-dd HH:MM:SS'), 'date_col', hdr{c_date}, 'value_rule', value_rule);  %#ok<TNOW1,DATST>
 
 % --- write ---------------------------------------------------------------------------------
 if synthetic && ~opts.allow_synthetic

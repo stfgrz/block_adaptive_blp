@@ -4,6 +4,19 @@ What to obtain, where to put it, what the file must contain, and the exact
 commands. Nothing below is downloaded automatically except through the two
 fetch helpers named here, and only when you run them.
 
+> **Update 2026-09-14 (data received).** The 1M OIS arrived as the ECB Data
+> Portal's copy of the Refinitiv series, `FM.B.U2.EUR.RT.SI.EUREON1M_` with
+> fields BID and ASK (6,955 business days, 1999-12-01 to 2026-09-11, no
+> inverted quotes, median spread 2 bp; the MID field has gaps and is not
+> used). It was converted to `raw/ois1m_ea_daily.csv` with columns
+> `Date, Bid, Ask`; `import_ois_daily` now averages Bid and Ask itself.
+> Jarociński's `shocks_ecb_mpd_me_m.csv` and `_d.csv` are in `raw/` (units
+> percent p.a., hence `scale = 100`). Still missing on this date: the five
+> ECB series of section 2 (`ea_fetch_v2_series()`), so the `ois4` and
+> `ois6` systems as defined there cannot be built yet; the interim systems
+> `ois4_nsa` (NSA HICP level) and `ois4_yoy` (year-on-year inflation) need
+> nothing else and were run first.
+
 ## 1. Required: daily 1-month OIS level (Refinitiv/LSEG RIC `EUREON1M=`)
 
 | item | value |

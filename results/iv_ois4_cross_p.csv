@@ -1,0 +1,10 @@
+# raw tau_bar is not comparable across designs: only ratio_q95, null percentiles and counts are (each design against its own null)
+design,scale_estimator,p,n_free_cells,n_escape_q95,n_escape_holm,n_eq_flag,max_ratio_q95,median_ratio_q95,top1,top2,top3,key_status
+"ois4 p=2",block,2,16,1,0,1,1.86950,0.53278,ip<-ois1m(1.87),ip<-ip(0.72),hicp_sa<-ois1m(0.72),match
+"ois4 p=2",pooled,2,16,1,0,1,2.43359,0.30298,ip<-ois1m(2.43),ip<-ip(0.71),hicp_sa<-ois1m(0.60),match
+"ois4 p=4",block,4,16,1,0,0,1.09782,0.47339,stoxx<-hicp_sa(1.10),ip<-hicp_sa(0.91),hicp_sa<-ois1m(0.77),match
+"ois4 p=4",pooled,4,16,1,0,0,1.44470,0.29765,stoxx<-hicp_sa(1.44),ip<-hicp_sa(0.86),hicp_sa<-ois1m(0.66),match
+"ois4 p=6",block,6,16,1,0,0,1.08716,0.49463,ip<-hicp_sa(1.09),stoxx<-hicp_sa(0.76),stoxx<-ip(0.72),match
+"ois4 p=6",pooled,6,16,1,0,0,1.01503,0.37142,ip<-hicp_sa(1.02),stoxx<-hicp_sa(0.72),stoxx<-ip(0.61),match
+"ois4 p=12",block,12,16,3,1,2,1.92038,0.58717,ip<-ois1m(1.92),stoxx<-ois1m(1.40),ip<-ip(1.30),match
+"ois4 p=12",pooled,12,16,5,1,2,2.12318,0.52523,ip<-ois1m(2.12),stoxx<-ois1m(1.61),ip<-ip(1.33),match

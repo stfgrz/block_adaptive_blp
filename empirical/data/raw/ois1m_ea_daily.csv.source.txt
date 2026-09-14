@@ -1,0 +1,4 @@
+file        = ois1m_ea_daily.csv
+series      = ECB Data Portal FM.B.U2.EUR.RT.SI.EUREON1M_.BID and .ASK (1-month EONIA swap rate, Refinitiv-provided, business daily, percent p.a.); mid = (Bid + Ask)/2 taken by import_ois_daily
+source_url  = https://data.ecb.europa.eu (FM dataset), exported by the user on 2026-09-14 as ois1m_ea_daily.xlsx (kept next to this file); converted to csv with openpyxl, values unchanged
+recorded_at = 2026-09-14

@@ -1,0 +1,4 @@
+file        = loans_nfc_ea.csv
+series      = ECB BSI.M.U2.Y.U.A20T.A.I.U2.2240.Z01.E (Adjusted loans to euro area NFCs, index of notional stocks, SA)
+source_url  = https://data-api.ecb.europa.eu/service/data/BSI/M.U2.Y.U.A20T.A.I.U2.2240.Z01.E?format=csvdata&startPeriod=1999-01
+recorded_at = 2026-09-14 23:08:08

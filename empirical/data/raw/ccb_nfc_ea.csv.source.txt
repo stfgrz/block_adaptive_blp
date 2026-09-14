@@ -1,0 +1,4 @@
+file        = ccb_nfc_ea.csv
+series      = ECB MIR.M.U2.B.A2I.AM.R.A.2240.EUR.N (Composite cost of borrowing indicator, NFCs, percent p.a.)
+source_url  = https://data-api.ecb.europa.eu/service/data/MIR/M.U2.B.A2I.AM.R.A.2240.EUR.N?format=csvdata&startPeriod=1999-01
+recorded_at = 2026-09-14 23:08:08

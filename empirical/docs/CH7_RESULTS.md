@@ -635,3 +635,200 @@ meetings, 12.6 all events on the 1M OIS). Everything above reruns with
 the 2003-start `ois6` system (loans, lending spread) is worth its thinner
 sample. Do not quote any IRF until `F_eff` clears 12 (30 % bias) and
 preferably 23 (10 %); until then the AR sets are the exhibit.
+
+---
+
+# Monday run (2026-09-14): the matched design on the real 1-month OIS
+
+The 1-month OIS level arrived as the ECB Data Portal's copy of the Refinitiv
+series (`FM.B.U2.EUR.RT.SI.EUREON1M_`, bid and ask, 6,955 business days from
+1999-12-01; mid used). The five ECB series of the checklist were fetched
+and validated (SA HICP from 1999, loans and cost of borrowing from 2003).
+Systems built: `ois4 = {ois1m (end-of-month), ip, hicp_sa, stoxx}`, the
+pre-specified headline; `ois4_nsa` and `ois4_yoy` (NSA level and
+year-on-year HICP); `ois4avg_nsa` (monthly-average indicator, for the
+Kilian test); `ois6` (2003m1 start, loans and lending spread). Headline
+instrument by the pre-specified rule: `z_gcs_1m_adj_sum`. Jarociński's
+MP shocks attached as external instruments (`z_ext_jk_*`, percent → bp).
+
+## M.1 First stage on the matched indicator (`ois4`, p = 12)
+
+Regression of the end-of-month 1M-OIS innovation on the instrument; F_eff is
+the HAC-robust F (MOP thresholds 12.05 / 15.06 / 23.11 / 37.42).
+
+| instrument | F_eff | t | R² | LP-IV F | lead+1 t | lag−1 t | F excl. 2008m9–09m6 | F 2001–08 | F 2009–11 | F 2012–19 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **`z_gcs_1m_adj_sum`** (headline) | **13.7** | 3.71 | 0.103 | 19.4 | −2.38 | −1.26 | 8.7 | 2.0 | 44.2 | 5.3 |
+| `z_gc_1m_adj_sum` (meetings only) | 7.9 | 2.80 | 0.047 | 11.2 | −2.50 | −2.16 | 10.5 | 0.4 | 26.3 | 34.3 |
+| `z_gcs_1m_adj_kilian` (wrong convention for an end-of-month level) | 7.9 | 2.81 | 0.044 | 7.5 | −0.49 | −1.87 | 5.2 | 0.4 | 19.7 | 5.3 |
+| `z_gcs_1m_adj_sum_bs` (orthogonalised on pre-event information) | 15.0 | 3.87 | 0.115 | 19.2 | −1.83 | −1.33 | 9.3 | 2.7 | 46.2 | 3.4 |
+| `z_gc_1m_adj_jk_sum` (JK poor man's, policy events only) | 2.7 | 1.65 | 0.021 | 7.2 | −2.58 | −0.83 | 5.0 | 0.0 | 33.7 | 12.6 |
+| `z_gcs_3m_sum` (3-month surprise, JK's euro-area maturity) | 19.2 | 4.38 | 0.141 | — | −2.35 | −1.32 | 33.1 | 3.6 | 39.8 | 5.2 |
+| `z_gcs_1y_sum` | 8.0 | 2.83 | 0.051 | — | −1.98 | −0.79 | 11.6 | 1.8 | 8.7 | 5.0 |
+| `z_ext_jk_mp_pm` (Jarociński MP, poor man's) | 2.3 | 1.53 | 0.033 | 10.8 | −2.58 | −0.59 | 17.4 | 0.0 | 32.2 | 5.8 |
+| legacy design (v1, 1Y surprise on 12M Euribor, last week) | 0.5 | 0.74 | 0.010 | — | | | | | | |
+
+Reading:
+
+1. **The matched pairing works as the literature said it would.** From
+   0.5 in v1 to 13.7: past the 30 %-bias threshold, not the 10 % one. AGKL's
+   own all-events first stage on the same asset is 12.6. Every
+   Anderson–Rubin set is bounded. Speeches matter (7.9 → 13.7), exactly
+   AGKL's finding.
+2. **Kilian's aggregation test, half confirmed.** On the end-of-month
+   indicator the within-month sum beats the day-weighted version (13.7 vs
+   7.9), as it must. On the monthly-average indicator (`ois4avg_nsa`) the
+   day-weighted version does *not* beat the sum (5.4 vs 6.4); averaging
+   simply weakens every instrument (Gertler–Karadi's point). The end-of-
+   month level is the right indicator for this instrument.
+3. **The strength sits in 2009–2011.** F = 44 in the sovereign-debt years
+   against 2.0 in 2001–08 and 5.3 in 2012–19; excluding 2008m9–2009m6
+   lowers F to 8.7 (last week, with the 1-year instrument, it raised it).
+   The identification is carried by the crisis-era short-rate surprises.
+4. **A negative lead.** `u_{s,t}` on `z_{t+1}` has t = −2.4 for the
+   headline and −2.5 to −2.8 for the meetings-only and JK variants: a
+   rate innovation this month predicts a *negative* surprise next month.
+   That is partial predictability of the surprises from the previous
+   month's rate move (Bauer–Swanson's "response to news" reading, or
+   mean-reverting expectations), and a mild failure of lead–lag
+   exogeneity. Orthogonalising on pre-event information (the `_bs`
+   version) brings it to −1.8 and raises F to 15.0; it is the natural
+   robustness instrument. Pre-event predictability of the headline itself
+   is not significant (p = 0.39).
+5. **Not chosen, but stronger:** the 3-month surprise (F = 19.2, the
+   maturity JK use for the euro area, always spanning the next meeting
+   without a day-count adjustment). The headline stays the pre-specified
+   1M instrument; the 3M is the maturity robustness of `CH7_REDESIGN` Sec. 2.
+6. The information-type events (`z_gc_1m_adj_info_sum`, F = 17.1) move the
+   short rate as much as the policy-type ones; the "pure policy" subsets
+   (JK poor man's, Jarociński MP) are weak instruments at monthly
+   frequency here (F 1–3, LP-IV 7–11).
+
+## M.2 IRFs with the headline instrument (preview; F between 14 and 19)
+
+25 bp normalisation on the end-of-month 1M OIS; BLP-block point with 90 %
+sandwich band; LP-IV Anderson–Rubin set.
+
+| variable | h | BLP-block | LP-IV AR set |
+|---|---|---|---|
+| ois1m | 6 | 0.37 [0.23, 0.50] | [−0.18, 0.32] |
+| ois1m | 12 | 0.34 [0.16, 0.51] | [−0.54, 0.28] |
+| ip | 3 | 1.63 [0.79, 2.46] | [−0.86, 1.63] |
+| ip | 12 | 0.82 [0.00, 1.64] | [−3.13, 0.73] |
+| ip | 24 | −0.98 [−1.81, −0.15] | [−0.83, 1.96] |
+| hicp_sa | 12 | 0.15 [−0.03, 0.33] | [−1.23, 0.15] |
+| hicp_sa | 36 | −0.16 [−0.34, 0.03] | [−0.93, 0.70] |
+| stoxx | 3 | 4.33 [2.00, 6.65] | [2.23, 13.25] |
+| stoxx | 12 | 1.95 [−1.69, 5.59] | [2.90, 16.58] |
+
+A positive short-rate surprise is followed by higher stock prices and, in
+the Bayesian LPs, higher output for a year, with prices flat: the
+euro-area information-effect pattern that JK, RST and Kerssenfischer
+document, now with an instrument strong enough that it cannot be blamed on
+weak-IV noise. The "pure policy" instruments that would remove it (JK
+split, Jarociński MP) are too weak here to overturn it, and their impact
+vectors do flip the stock sign (b_z for stoxx −7.5 with MP_pm against
++20 with the headline). This is a conditional result about *this*
+instrument, not a transmission finding, and the thesis text should say so.
+The τ diagnostic, the object of the chapter, does not depend on any of it:
+see M.3.
+
+## M.3 τ map, cross-p and ablation for `ois4`
+
+Own nulls `iv_ois4_p{2,4,6,12}` (R = 200 each, design keys matched).
+Identification does not enter any of this.
+
+**Protocol at p = 12** (cells with ratio to q95 above 0.8):
+
+| cell | estimator | τ̄ | null q95 | ratio | null percentile | Holm |
+|---|---|---|---|---|---|---|
+| ip ← ois1m | block | 3.13 | 1.61 | **1.95** | 1.00 | **reject** |
+| ip ← ois1m | pooled | 3.54 | 1.67 | **2.11** | 0.99 | — |
+| stoxx ← ois1m | block | 2.09 | 1.50 | 1.40 | 0.99 | — |
+| stoxx ← ois1m | pooled | 2.54 | 1.60 | **1.58** | 1.00 | **reject** |
+| ip ← ip | block / pooled | 1.98 / 2.22 | 1.51 / 1.67 | 1.32 / 1.33 | 0.98 / 0.99 | — |
+| ois1m ← ois1m | block / pooled | 1.56 / 2.04 | 1.55 / 1.66 | 1.01 / 1.23 | 0.95 / 0.98 | — |
+| stoxx ← ip | pooled | 2.09 | 1.77 | 1.18 | 0.98 | — |
+| hicp_sa ← anything | both | | | < 0.8 | | — |
+
+With the seasonally adjusted price index the HICP escape of the level
+system is gone, as the year-on-year run predicted. What lights up instead
+is the **short-rate block in the output and stock-price equations**: the
+lagged 1-month OIS coefficients of the IP and STOXX local projections
+disagree with the VAR(12) centre at h = 2..12, and the IP one survives
+Holm across the 16 free cells (the pooled estimator also Holm-rejects the
+stock cell). Read economically: the dynamic response of output and equity
+to the policy rate is where a random-walk-centred VAR prior fails on
+euro-area data. That is also the one place a monetary-transmission chapter
+would want the prior to fail.
+
+**Cross-p** (`results/iv_ois4_cross_p.csv`; the headline instrument's F is
+3.7, 4.5, 11.6, 13.7 at p = 2, 4, 6, 12 — the first stage itself needs the
+long lag order):
+
+| design | estimator | escapes at q95 | Holm | eq. flags | max ratio (cell) | median ratio |
+|---|---|---|---|---|---|---|
+| p = 2 | block / pooled | 1 / 1 | 0 / 0 | 1 / 1 | 1.87 / 2.43 (ip ← ois1m) | 0.53 / 0.30 |
+| p = 4 | block / pooled | 1 / 1 | 0 / 0 | 0 / 0 | 1.10 / 1.44 (stoxx ← hicp_sa) | 0.47 / 0.30 |
+| p = 6 | block / pooled | 1 / 1 | 0 / 0 | 0 / 0 | 1.09 / 1.02 (ip ← hicp_sa) | 0.49 / 0.37 |
+| p = 12 | block / pooled | 3 / 5 | 1 / 1 | 2 / 2 | 1.92 / 2.12 (ip ← ois1m) | 0.59 / 0.53 |
+
+The rate-block escape in the IP equation is present at p = 2 and at p = 12
+and absent at p = 4 and 6, where only marginal cells cross (ratios 1.02 to
+1.44, none Holm-significant). Not the monotone dose–response of the v1
+design document, and not the flat pattern of the level system either: a
+short VAR misses the delayed pass-through of the short rate to output, a
+medium one absorbs it, and the twelve-lag VAR disagrees again with the
+LPs — the same p at which the first stage becomes usable. The last point
+matters for the thesis text: p = 12 is where both the identification and
+the diagnostic have power, and the two are independent by construction.
+
+**Ablation** (60 origins from 2010m1, forecasts at h = 2..12; escaping
+cells forced back to τ = 1, controls likewise):
+
+| cell | role | h | MSFE free | MSFE ablated | ratio | DM (HLN) | Clark–West |
+|---|---|---|---|---|---|---|---|
+| ip ← ois1m | escape | 2 | 1.336 | 1.329 | 0.99 | −0.45 | −0.38 |
+| ip ← ois1m | escape | 12 | 20.96 | 17.60 | 0.84 | −1.42 | −0.69 |
+| stoxx ← ois1m | escape | 2 | 44.6 | 44.4 | 1.00 | −0.36 | −0.25 |
+| stoxx ← ois1m | escape | 12 | 384 | 353 | 0.92 | −0.75 | 0.01 |
+| ip ← ip | escape | 12 | 20.96 | 19.75 | 0.94 | −0.46 | 0.11 |
+| ois1m ← ois1m | escape | 12 | 0.981 | 0.906 | 0.92 | −2.30 | −2.68 |
+| ois1m ← hicp_sa | control | 12 | 0.981 | 0.903 | 0.92 | −1.94 | −2.30 |
+
+Unlike the HICP seasonal escape of the level system (V2.5), **none of the
+`ois4` escapes buys forecast accuracy** over 2010–2019: releasing the rate
+block is neutral at two months and slightly worse at twelve (ratios 0.84 to
+0.94, not significant except for the rate's own block, where the tighter
+model wins with DM −2.3), and the control behaves the same way. The
+escapes are calibrated prior–data disagreement, not predictive gain. Two
+readings are compatible with this and must both be stated: the
+disagreement may live in the pre-2010 part of the sample (the crisis-era
+short-rate dynamics that also carry the first stage), which the 2010+
+evaluation window never has to forecast; or the released coefficients are
+too noisy for the extra flexibility to pay.
+
+*Robustness with earlier origins.* At p = 12 the sample cannot start the
+evaluation before 2010 (73 months for 49 regressors in 2006). At p = 2,
+where the same cell escapes (ratio 1.87 / 2.43), origins from 2005m1 are
+feasible: 168 origins, `results/ablation_iv_ois4_p2_from2005.csv`.
+
+| cell | role | h | ratio | DM (HLN) | Clark–West |
+|---|---|---|---|---|---|
+| ip ← ois1m | escape | 2 | 1.03 | 1.44 | 1.83 |
+| ip ← ois1m | escape | 12 | 0.98 | −1.06 | −1.14 |
+| ip ← ip | escape | 2 | 0.98 | −1.72 | −1.72 |
+| ois1m ← hicp_sa | control | 2 | 1.01 | 1.08 | 1.21 |
+| hicp_sa ← stoxx | control | 2 | 0.99 | −3.72 | −3.68 |
+
+Over 2005–2019 the rate-block escape in the IP equation shows a marginal
+two-month gain (Clark–West 1.83, one-sided 5 % but not 1 %) and nothing at
+twelve months. Verdict for the chapter: the `ois4` escapes are
+statistically calibrated and economically placed where a transmission
+chapter would look, but their predictive content is at best marginal; the
+seasonal HICP escape of the level system remains the one escape validated
+on both counts. The diagnostic and the validation answer different
+questions, and the chapter should keep them apart.
+
+*Year-on-year variant of the matched system* (`ois4_yoy`): headline first
+stage F = 14.7 (LP-IV 19.0); its own null has not been run.

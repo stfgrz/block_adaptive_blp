@@ -242,3 +242,21 @@ SYSTEM = 'lev4'; DO_REL = false; DO_A = false; DO_C = false; DO_E = false; run(f
 Quick interface check on the real data (minutes, meaningless numbers): `QUICK = true; SYSTEM = 'lev4'; run(...RUN_EMPIRICAL_IV.m)`.
 The `ois4` / `ois6` systems need the daily `EUREON1M=` file and `ea_fetch_v2_series()`; see the checklist.
 Tests added: `test_fixed_tau_mask`, `test_null_modularity`, `test_lp_iv`, `test_empirical_iv` (all in `run_all_tests`).
+
+### 7a. Monday 2026-09-14: with the 1-month OIS in place
+
+```matlab
+addpath(genpath('/Users/stefanograziosi/Documents/GitHub/block_adaptive_blp'))
+import_ois_daily();                                  % raw/ois1m_ea_daily.csv (Date, Bid, Ask) -> derived/ois1m_ea_monthly.mat
+ea_fetch_v2_series();                                % SA HICP, loans, cost of borrowing, EONIA, 1M Euribor (ECB portal)
+jk = struct('path', fullfile(ea_paths().raw, 'shocks_ecb_mpd_me_m.csv'), 'column', 'MP_pm', 'name', 'jk_mp_pm', 'scale', 100);
+assemble_dataset_v2(struct('system', 'ois4', 'external', {{jk}}));   % the pre-specified headline system
+SYSTEM = 'ois4'; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))
+for p = [2 4 6 12], run_null_calibration(struct('p', p, 'null', struct('n_rep', 200, ...
+    'dataset', fullfile(ea_paths().data, 'ea_dataset_v2_ois4.mat'), 'stem', sprintf('iv_ois4_p%d', p)))); end
+SYSTEM = 'ois4'; DO_REL = false; DO_A = false; DO_C = false; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))
+```
+
+Variants: `assemble_dataset_v2(struct('system', 'ois4_yoy', 'vars', {{'ois1m', 'ip', 'hicp_yoy', 'stoxx'}}))`,
+`...'ois4avg_nsa', 'vars', {{'ois1m_avg', 'ip', 'hicp', 'stoxx'}}` (the Kilian test), `'ois6'` (2003m1 start).
+Results: `empirical/docs/CH7_RESULTS.md`, section "Monday run".

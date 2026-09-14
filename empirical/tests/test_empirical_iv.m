@@ -60,7 +60,18 @@ assert(exist(real_out, 'file') ~= 2, 'synthetic OIS was written to the derived n
 assert(all(isfinite(m.eom)) && all(isfinite(m.avg)) && numel(m.ym) == 252, 'monthly OIS aggregation');
 m2 = import_ois_daily(struct('daily_csv', f, 'out_csv', fullfile(tmp, 'syn_monthly.csv'), 'allow_synthetic', true, 'verbose', false));
 assert(exist(fullfile(tmp, 'syn_monthly.mat'), 'file') == 2, 'allow_synthetic did not write');
-fprintf('  import_ois_daily: fixture flagged, %d months, derived file protected: OK\n', numel(m2.ym));
+% bid/ask layout: the mid is used
+fb = fullfile(tmp, 'syn_bidask.csv');
+fid = fopen(f, 'r');  fgetl(fid);  fo = fopen(fb, 'w');  fprintf(fo, 'Date,Bid,Ask,SYNTHETIC\n');
+while true
+    l = fgetl(fid);  if ~ischar(l), break; end
+    q = regexp(l, ',', 'split');  v = str2double(q{2});
+    fprintf(fo, '%s,%.4f,%.4f,1\n', q{1}, v - 0.01, v + 0.01);
+end
+fclose(fid);  fclose(fo);
+m3 = import_ois_daily(struct('daily_csv', fb, 'out_csv', fullfile(tmp, 'never2.csv'), 'verbose', false));
+assert(max(abs(m3.eom - m.eom)) < 1e-9 && ~isempty(strfind(m3.meta.value_rule, 'mid')), 'bid/ask mid not used');  %#ok<STREMP>
+fprintf('  import_ois_daily: fixture flagged, %d months, derived file protected, bid/ask mid: OK\n', numel(m2.ym));
 
 % --- 3./4. proxy identification and relevance on a simulated VAR ----------------
 rng(31, 'twister');

@@ -1,0 +1,4 @@
+file        = euribor1m_ea.csv
+series      = ECB FM.M.U2.EUR.RT.MM.EURIBOR1MD_.HSTA (1-month Euribor, monthly average, percent p.a.)
+source_url  = https://data-api.ecb.europa.eu/service/data/FM/M.U2.EUR.RT.MM.EURIBOR1MD_.HSTA?format=csvdata&startPeriod=1999-01
+recorded_at = 2026-09-14 23:08:09

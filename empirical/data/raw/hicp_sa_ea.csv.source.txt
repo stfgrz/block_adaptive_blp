@@ -1,0 +1,4 @@
+file        = hicp_sa_ea.csv
+series      = ECB ICP.M.U2.Y.000000.3.INX (HICP overall index, ECB, working-day and seasonally adjusted, 2015=100)
+source_url  = https://data-api.ecb.europa.eu/service/data/ICP/M.U2.Y.000000.3.INX?format=csvdata&startPeriod=1999-01
+recorded_at = 2026-09-14 23:08:07
