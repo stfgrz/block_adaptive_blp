@@ -29,16 +29,27 @@ function P = ea_paths()
 %     .raw        <root>/empirical/data/raw       (downloaded/shipped csv)
 %     .derived    <root>/empirical/data/derived   (built shock series)
 %     .docs       <root>/empirical/docs
-%     .results    <root>/results                  (figures, .mat, .csv)
-%     .dataset    <root>/empirical/data/ea_dataset.mat  (baseline dataset)
+%     .legacy     <root>/empirical/legacy_v1          (the 2026-09-12 internal-
+%                 instrument design: drivers and data builders, kept runnable)
+%     .results    <root>/results/empirical            (current design: iv_*,
+%                 nulls, ablations; figures in .figures)
+%     .figures    <root>/results/empirical/figures
+%     .results_legacy, .figures_legacy   the same for the v1 outputs
+%                 (<root>/results/empirical/legacy_v1[/figures])
+%     .results_sim  <root>/results/simulation         (Monte Carlo output;
+%                 written by the root-level drivers, listed here for reference)
+%     .dataset    <root>/empirical/data/ea_dataset_v2_ois4.mat  (the headline
+%                 system of the current design; built by assemble_dataset_v2)
+%     .dataset_legacy  <root>/empirical/data/ea_dataset.mat  (v1 five-variable
+%                 system with the surprise inside the VAR)
 %
 % NOTES
 % -----
 % * .results and the data folders are NOT created here; each writer
 %   creates the directory it is about to write to.
-% * Every entry point of the package (RUN_EMPIRICAL, SMOKE_TEST_EMPIRICAL,
-%   build_shock_series, fetch_outcome_data, assemble_dataset,
-%   run_null_calibration) starts with a two-line bootstrap that puts the
+% * Every entry point of the package (RUN_EMPIRICAL_IV, the data builders,
+%   run_null_calibration, run_block_ablation and the legacy_v1 drivers)
+%   starts with a two-line bootstrap that puts the
 %   repo on the path if this function is not visible yet, so any of them
 %   can be invoked directly from any directory.  The bootstrap cannot
 %   simply call a shared helper: that helper would have the same
@@ -52,6 +63,12 @@ P.data      = fullfile(here, 'data');
 P.raw       = fullfile(P.data, 'raw');
 P.derived   = fullfile(P.data, 'derived');
 P.docs      = fullfile(here, 'docs');
-P.results   = fullfile(P.root, 'results');
-P.dataset   = fullfile(P.data, 'ea_dataset.mat');
+P.legacy    = fullfile(here, 'legacy_v1');
+P.results   = fullfile(P.root, 'results', 'empirical');
+P.figures   = fullfile(P.results, 'figures');
+P.results_legacy = fullfile(P.results, 'legacy_v1');
+P.figures_legacy = fullfile(P.results_legacy, 'figures');
+P.results_sim    = fullfile(P.root, 'results', 'simulation');
+P.dataset        = fullfile(P.data, 'ea_dataset_v2_ois4.mat');
+P.dataset_legacy = fullfile(P.data, 'ea_dataset.mat');
 end

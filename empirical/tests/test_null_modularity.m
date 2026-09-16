@@ -128,16 +128,22 @@ assert(all(pf(:) >= 0 & pf(:) <= 1) && all(B.p_cell(:) >= 0 & B.p_cell(:) <= 1),
 assert(B.null_pct(1, 2) == 1 && B.p_cell(1, 2) == 0, 'planted escape should sit at percentile 1');
 assert(abs(B.null_pct(2, 2) - 0.5) < 0.12, 'null median cell has percentile %.2f', B.null_pct(2, 2));
 assert(all(abs(B.ratio_q95(:) - B.tau_bar(:) ./ S.q95(:)) < 1e-12), 'ratio_q95 definition');
+% Monte Carlo p-values: never exactly 0, planted cells at the floor 1/(R+1);
+% the family-wise max-statistic test rejects exactly the two planted cells
+assert(all(B.p_mc(:) > 0) && abs(B.p_mc(1, 2) - 1 / (R + 1)) < 1e-12, 'p_mc convention');
+assert(B.n_escape_fwer == 2 && B.fwer_reject(1, 2) && B.fwer_reject(2, 3) && ~B.fwer_reject(3, 1), 'FWER max-stat test');
+assert(abs(B.p_fwer_min - 1 / (R + 1)) < 1e-12 && B.null_R == R && strcmp(B.null_method, 'resample'), 'p_fwer_min / null_R / null_method');
+assert(all(B.p_fwer(:) >= B.p_mc(:) - 1e-12), 'the family-wise p-value must not be below the per-cell one');
 Pp = prot.pooled;
 assert(Pp.n_escape_q95 == 0 && Pp.n_escape_holm == 0 && Pp.n_eq_flag == 0, ...
        'the null-median pooled fake should escape nowhere');
 % csv: header carries the new columns, the held block is marked
 txt = fileread(csv);
 lines = strsplit(strtrim(txt), sprintf('\n'));
-assert(~isempty(strfind(lines{1}, ',ratio_q95,null_pct,p_cell,holm_reject')), 'csv header lacks the new columns');
+assert(~isempty(strfind(lines{1}, ',ratio_q95,null_pct,p_cell,holm_reject,p_mc,p_fwer,fwer_reject')), 'csv header lacks the new columns');
 assert(numel(lines) == 1 + 2 * K * G, 'csv has %d lines, expected %d', numel(lines), 1 + 2 * K * G);
 cols = strsplit(lines{2}, ',');
-assert(numel(cols) == 21, 'csv row has %d columns, expected 21', numel(cols));
+assert(numel(cols) == 24, 'csv row has %d columns, expected 24', numel(cols));
 held_rows = 0;
 for k = 2:numel(lines)
     cc = strsplit(lines{k}, ',');
@@ -176,7 +182,7 @@ assert(pf3.block.n_escape_q95 == 2, 'flat layout gives different counts');
 % a null without draws: percentiles NaN, counts still there
 nl_nod = nl;  nl_nod.block = rmfield(nl_nod.block, 'tau_bar_draws');
 pf4 = ea_apply_protocol({'block', est}, nl_nod, vn, h_early, held, '', struct('quiet', true));
-assert(all(isnan(pf4.block.null_pct(:))) && isnan(pf4.block.n_escape_holm) && ...
+assert(all(isnan(pf4.block.null_pct(:))) && isnan(pf4.block.n_escape_holm) && isnan(pf4.block.n_escape_fwer) && ...
        pf4.block.n_escape_q95 == 2 && strcmp(pf4.key_status, 'unchecked'), 'null without draws');
 fprintf('  ea_apply_protocol: key refusal, forced warning, legacy/flat null, no-draw null: OK\n');
 

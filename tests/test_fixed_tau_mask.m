@@ -3,7 +3,7 @@ function test_fixed_tau_mask()
 % -------
 % Pin the behaviour of the per-cell hold cfg.blocks.fixed_tau_mask and of
 % the equation subset cfg.blp.equations, both added for the out-of-sample
-% block ablation (empirical/montecarlo/run_block_ablation.m, CH7_REDESIGN
+% block ablation (empirical/montecarlo/run_block_ablation.m, DESIGN.md
 % Section 8), and smoke-test that script on the synthetic fixture.
 %
 % WHAT IS CHECKED, for BOTH adaptive estimators

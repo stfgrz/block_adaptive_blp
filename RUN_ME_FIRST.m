@@ -14,7 +14,7 @@
 %   5.  optionally run a small Monte Carlo demonstration and summarise
 %       bias / RMSE / coverage / block-detection metrics.
 %
-% Figures are saved to results/ when cfg.demo.save_figures is true.
+% Figures are saved to results/simulation/figures/ when cfg.demo.save_figures is true.
 %
 % QUICK MODE: to smoke-test everything fast, set in the base workspace
 %     QUICK_DEMO = true; RUN_ME_FIRST
@@ -35,8 +35,10 @@ addpath(fullfile(this_dir, 'config'), fullfile(this_dir, 'dgp'), ...
         fullfile(this_dir, 'samplers'), fullfile(this_dir, 'montecarlo'), ...
         fullfile(this_dir, 'plots'), fullfile(this_dir, 'tests'), ...
         fullfile(this_dir, 'utils'));
-results_dir = fullfile(this_dir, 'results');
+results_dir = fullfile(this_dir, 'results', 'simulation');
+fig_dir = fullfile(results_dir, 'figures');
 if ~exist(results_dir, 'dir'), mkdir(results_dir); end
+if ~exist(fig_dir, 'dir'), mkdir(fig_dir); end
 
 % Figures are optional: on a headless machine Octave may have no
 % graphics toolkit at all, and `figure` would then abort the script
@@ -86,7 +88,7 @@ if CAN_PLOT
     fig1 = plot_irfs(dgp1.theta_true, est_list1, cfg, ...
                      'IRFs, correctly specified VAR(2) DGP');
     if cfg.demo.save_figures
-        print(fig1, fullfile(results_dir, 'fig1_irf_correct.png'), '-dpng', '-r120');
+        print(fig1, fullfile(fig_dir, 'fig1_irf_correct.png'), '-dpng', '-r120');
     end
 end
 
@@ -114,7 +116,7 @@ if CAN_PLOT
     fig2 = plot_irfs(dgp2.theta_true, est_list2, cfg, ...
                      'IRFs, sparse misspecification (omitted lag-3 effect of y_1 on y_3)');
     if cfg.demo.save_figures
-        print(fig2, fullfile(results_dir, 'fig2_irf_sparse.png'), '-dpng', '-r120');
+        print(fig2, fullfile(fig_dir, 'fig2_irf_sparse.png'), '-dpng', '-r120');
     end
 end
 
@@ -142,7 +144,7 @@ if CAN_PLOT
         'Posterior block scales, sparse DGP (thick line = truly misspecified block)', ...
         dgp2.misspec_block);
     if cfg.demo.save_figures
-        print(fig3, fullfile(results_dir, 'fig3_block_scales_sparse.png'), '-dpng', '-r120');
+        print(fig3, fullfile(fig_dir, 'fig3_block_scales_sparse.png'), '-dpng', '-r120');
     end
 end
 
@@ -186,8 +188,8 @@ if cfg.demo.run_montecarlo
                 sprintf('MC-average posterior block scales, DGP: %s', dname), ...
                 s.misspec_block);
             if cfg.demo.save_figures
-                print(fig4, fullfile(results_dir, sprintf('fig4_rmse_%s.png', dname)), '-dpng', '-r120');
-                print(fig5, fullfile(results_dir, sprintf('fig5_scales_%s.png', dname)), '-dpng', '-r120');
+                print(fig4, fullfile(fig_dir, sprintf('fig4_rmse_%s.png', dname)), '-dpng', '-r120');
+                print(fig5, fullfile(fig_dir, sprintf('fig5_scales_%s.png', dname)), '-dpng', '-r120');
             end
         end
     end
@@ -195,5 +197,5 @@ else
     fprintf('\n(Monte Carlo demonstration skipped; set cfg.demo.run_montecarlo = true.)\n');
 end
 
-fprintf('\nDone. Figures and .mat files are in results/.\n');
+fprintf('\nDone. Figures and .mat files are in results/simulation/.\n');
 fprintf('Run tests with:  cd tests; run_all_tests\n');

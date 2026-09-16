@@ -1,14 +1,16 @@
 % RUN_EMPIRICAL_IV  Chapter 7 v2 driver: external-instrument identification
-% on an instrument-free state vector (docs/CH7_REDESIGN.md).
+% on an instrument-free state vector (docs/DESIGN.md).
 %
-% The legacy baseline (internal instrument) is RUN_EMPIRICAL.m and is not
-% touched.  Everything here writes results/iv_<system>_p<p>_* files.
+% The legacy baseline (internal instrument, 2026-09-12) is
+% legacy_v1/RUN_EMPIRICAL_V1.m and writes to results/empirical/legacy_v1/.
+% Everything here writes results/empirical/iv_<system>_p<p>_* files and
+% results/empirical/figures/fig_iv_*.png.
 %
 % PREREQUISITES
 %   build_instrument_series();                 (public EA-EMPD extract, shipped)
 %   assemble_dataset_v2(struct('system', S));  S in {lev4, lev4_yoy, ois4, ois6}
 %   (ois4 / ois6 need the daily EUREON1M= file and ea_fetch_v2_series(); see
-%   docs/MONDAY_DATA_CHECKLIST.md)
+%   docs/DATA.md)
 %
 % STEPS (toggles; preset any of them in the workspace before running)
 %   REL  relevance / timing / influence table for EVERY instrument in ds.Z,
@@ -18,13 +20,23 @@
 %        (ea_identify_proxy), plus LP-IV with Anderson-Rubin sets; point
 %        IRFs for the ALTERNATIVE instruments from the same posterior
 %        coefficient blocks (the tau map does not depend on identification)
-%   B    tau heatmap export and the reading protocol against the design's
-%        null (null_calibration_iv_<system>_p<p>.mat; for lev4 at p = 12 the
-%        legacy null of the same data, null_calibration_p12_levels.mat, is
-%        accepted with a printed note)
+%   B    tau heatmap export and the reading protocol against EVERY null
+%        available for the design: null_calibration_iv_<system>_p<p><v>.mat
+%        for v in NULL_VARIANTS (default {'', '_wild', '_block'}: the iid-
+%        resampling null and, when they exist, the wild-bootstrap and the
+%        block-bootstrap nulls of run_null_calibration's sim_method).  One
+%        protocol csv per null (<tag>_tau_protocol<v>.csv); the iid null is
+%        the pre-specified one and feeds step E.  For lev4 at p = 12 the
+%        legacy null of the same data, legacy_v1/null_calibration_p12_levels.mat,
+%        is accepted with a printed note.  POOLED_PROTOCOL_EXACT (default
+%        true) re-runs the horizon-pooled estimator at H = h_early(2) for
+%        the protocol, because the null is simulated at that H and the
+%        pooled log-tau path at h <= 12 depends on the horizons above it;
+%        the independent estimator's tau at h <= 12 does not depend on H
 %   C    LP-IV table for headline + alternatives (theta, HAC band, AR set)
 %   D    cross-p comparison: tau maps at p in PLIST, read through each
-%        design's own null (ea_cross_p_table); ratio / percentile / counts
+%        design's own null(s) -- one row per available NULL_VARIANTS entry
+%        (ea_cross_p_table); ratio / percentile / counts / FWER p-values
 %   E    out-of-sample block ablation on the protocol's escaping cells (or
 %        the top cell) and a quiet control (run_block_ablation)
 %
@@ -55,6 +67,8 @@ if ~exist('DO_POOLED', 'var'),  DO_POOLED = true; end
 if ~exist('HEADLINE_Z', 'var'), HEADLINE_Z = ''; end
 if ~exist('ALT_Z', 'var'),      ALT_Z = {}; end
 if ~exist('NULL_FILE', 'var'),  NULL_FILE = ''; end
+if ~exist('NULL_VARIANTS', 'var'), NULL_VARIANTS = {'', '_wild', '_block'}; end
+if ~exist('POOLED_PROTOCOL_EXACT', 'var'), POOLED_PROTOCOL_EXACT = true; end
 if ~exist('N_ORIGINS', 'var'),  N_ORIGINS = 60; end
 if ~exist('ORIGIN0_YM', 'var'), ORIGIN0_YM = [2010 1]; end
 if ~exist('QUICK', 'var'),      QUICK = false; end
@@ -65,6 +79,7 @@ if isempty(ea_this), ea_this = fullfile(pwd, 'RUN_EMPIRICAL_IV'); end
 addpath(genpath(fileparts(fileparts(ea_this))));
 P = ea_paths();
 if exist(P.results, 'dir') ~= 7, mkdir(P.results); end
+if exist(P.figures, 'dir') ~= 7, mkdir(P.figures); end
 
 if isempty(DATASET), DATASET = fullfile(P.data, sprintf('ea_dataset_v2_%s.mat', SYSTEM)); end
 assert(exist(DATASET, 'file') == 2, ...
@@ -94,7 +109,7 @@ if QUICK, tag = [tag '_quick']; end
 
 % --- headline and alternative instruments ------------------------------------
 ind = vn{1};
-% aggregation by the indicator's timing convention (CH7_REDESIGN Sec. 3):
+% aggregation by the indicator's timing convention (DESIGN.md Sec. 3):
 % end-of-month level -> sum; monthly average of same-day closes (OIS, EONIA)
 % -> kilian; monthly average of a fixing set BEFORE the events (Euribor,
 % 11:00 CET) -> kilianfix
@@ -125,7 +140,8 @@ bv0 = estimate_bvar_niw(Y, cfg);
 out_csv = fullfile(P.results, sprintf('%s_relevance.csv', tag));
 fid = fopen(out_csv, 'w');
 fprintf(fid, ['instrument,b,t_ehw,t_hac,F_eff,R2,N,n_nonzero,sd_z_bp,naive_b,naive_t,naive_F,' ...
-              'lead1_t,lead2_t,lead3_t,lag1_t,pred_F,pred_p,ar1,F_excl_crisis,F_winsor,F_2001_08,F_2009_11,F_2012_19,top_month,top_dfbeta,mop_verdict\n']);
+              'lead1_t,lead2_t,lead3_t,lag1_t,pred_F,pred_p,ar1,F_excl_crisis,F_winsor,F_2001_08,F_2009_11,F_2012_19,top_month,top_dfbeta,mop_verdict,' ...
+              'cov_share_2001_08,cov_share_2009_11,cov_share_2012_19,cov_share_top5,n_half_abs,lagpred_R2,lagpred_p,predchg_t\n']);
 REL = struct();
 for j = 1:numel(ds.znames)
     nm = ds.znames{j};  z = zcol(nm);
@@ -141,11 +157,14 @@ for j = 1:numel(ds.znames)
     end
     pf = NaN;  pp = NaN;  if r.predict.available, pf = r.predict.F_hac;  pp = r.predict.p_value; end
     fw = NaN;  if isfield(r.influence, 'fs_winsorised'), fw = r.influence.fs_winsorised.F_eff; end
-    fprintf(fid, '%s,%.6f,%.3f,%.3f,%.3f,%.4f,%d,%d,%.3f,%.6f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d-%02d,%.3f,%s\n', ...
+    lgR2 = NaN;  lgp = NaN;  if r.predict.lags.available, lgR2 = r.predict.lags.R2;  lgp = r.predict.lags.p_value; end
+    shw = nan(1, 3);  shw(1:min(3, numel(r.anatomy.share_window))) = r.anatomy.share_window(1:min(3, end));
+    fprintf(fid, '%s,%.6f,%.3f,%.3f,%.3f,%.4f,%d,%d,%.3f,%.6f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d-%02d,%.3f,%s,%.3f,%.3f,%.3f,%.3f,%d,%.3f,%.4f,%.3f\n', ...
             nm, r.fs.b, r.fs.t_ehw, r.fs.t_hac, r.fs.F_eff, r.fs.R2, r.fs.N, r.fs.n_nonzero, r.fs.sd_z, ...
             r.naive.b, r.naive.t_hac, r.naive.F_eff, tk(1), tk(2), tk(3), tk(-1), pf, pp, r.predict.ar1_all, ...
             r.influence.fs_excl_crisis.F_eff, fw, fsub, r.influence.top.year(1), r.influence.top.month(1), ...
-            r.influence.top.dfbeta(1), r.fs.mop_verdict);
+            r.influence.top.dfbeta(1), r.fs.mop_verdict, shw, r.anatomy.share_top5, r.anatomy.n_half_abs, ...
+            lgR2, lgp, r.predict.lags.pred_change.t_hac);
 end
 fclose(fid);
 fprintf('  wrote %s\n', out_csv);
@@ -228,7 +247,7 @@ try
             else, legend('BVAR', 'BLP-FMAR', 'BLP-block', 'LP-IV', 'AR set', 'Location', 'best'); end
         end
     end
-    print(fullfile(P.results, sprintf('fig_%s_irf.png', tag)), '-dpng', '-r110');
+    print(fullfile(P.figures, sprintf('fig_%s_irf.png', tag)), '-dpng', '-r110');
 catch err
     fprintf('  (plotting skipped: %s)\n', err.message);
 end
@@ -263,31 +282,68 @@ try
             title(sprintf('%s eq %s: log tau (%s)', SYSTEM, vn{i}, sets{e, 1}), 'Interpreter', 'none');
             set(gca, 'YTick', 1:K, 'YTickLabel', vn);  xlabel('horizon h');
         end
-        print(fullfile(P.results, sprintf('fig_%s_tau_%s.png', tag, sets{e, 1})), '-dpng', '-r110');
+        print(fullfile(P.figures, sprintf('fig_%s_tau_%s.png', tag, sets{e, 1})), '-dpng', '-r110');
     end
 catch err
     fprintf('  (plotting skipped: %s)\n', err.message);
 end
-nf = NULL_FILE;
-if isempty(nf), nf = fullfile(P.results, sprintf('null_calibration_%s.mat', strrep(tag, '_quick', ''))); end
-if exist(nf, 'file') ~= 2 && strcmp(SYSTEM, 'lev4') && cfg.p == 12
-    alt = fullfile(P.results, 'null_calibration_p12_levels.mat');
-    if exist(alt, 'file') == 2
-        fprintf('  note: %s not found; using the legacy null of the same data, %s\n', nf, alt);  nf = alt;
-    end
+% the pooled estimator's log-tau path at h <= h_early(2) depends on the
+% horizons above it, and the null is simulated at H = h_early(2): re-run the
+% pooled estimator at that H so the protocol compares like with like (the
+% independent estimator's tau at h <= 12 is the same at every H, draw for
+% draw, because horizons are sampled in increasing order)
+sets_prot = sets;
+if POOLED_PROTOCOL_EXACT && size(sets, 1) > 1 && cfg.H > h_early(2)
+    cfh = L.cfg;  cfh.H = h_early(2);
+    t_h = tic;  rng(20260107, 'twister');
+    bvh = estimate_bvar_niw(Y, cfh);  bfh = estimate_blp_fmar(Y, cfh, bvh);
+    bph = estimate_blp_blockpooled(Y, cfh, bvh, bfh.lambda);
+    sets_prot{2, 2} = bph;
+    tb48 = mean(L.blpp.tau_mean(:, :, h_early(1):h_early(2)), 3);  tb12 = mean(bph.tau_mean(:, :, h_early(1):h_early(2)), 3);
+    fprintf('  pooled estimator re-run at H = %d for the protocol (%.0f s); max |tau_bar(H=%d) - tau_bar(H=%d)| over cells = %.3f\n', ...
+            cfh.H, toc(t_h), cfg.H, cfh.H, max(abs(tb48(:) - tb12(:))));
+    save(fullfile(P.results, sprintf('%s_pooled_H%d.mat', tag, cfh.H)), 'bph', 'cfh', 'tb48', 'tb12');
 end
-if exist(nf, 'file') == 2
+prot = [];  prot_variants = struct();  nulls_used = {};
+for v = 1:numel(NULL_VARIANTS)
+    suf = NULL_VARIANTS{v};
+    if isempty(suf) && ~isempty(NULL_FILE), nf = NULL_FILE;
+    else, nf = fullfile(P.results, sprintf('null_calibration_%s%s.mat', strrep(tag, '_quick', ''), suf)); end
+    if exist(nf, 'file') ~= 2 && isempty(suf) && strcmp(SYSTEM, 'lev4') && cfg.p == 12
+        alt = fullfile(P.results_legacy, 'null_calibration_p12_levels.mat');
+        if exist(alt, 'file') == 2
+            fprintf('  note: %s not found; using the legacy null of the same data, %s\n', nf, alt);  nf = alt;
+        end
+    end
+    if exist(nf, 'file') ~= 2
+        if isempty(suf)
+            fprintf(['  no iid null for this design yet (%s).  Run\n' ...
+                     '    run_null_calibration(struct(''p'', %d, ''null'', struct(''n_rep'', 500, ''dataset'', ''%s'', ''stem'', ''%s'')))\n' ...
+                     '  (add ''sim_method'', ''wild'' for the heteroskedasticity-robust null) and rerun with only DO_B = true.\n'], ...
+                    nf, cfg.p, DATASET, strrep(tag, '_quick', ''));
+        end
+        continue
+    end
     nl = load(nf);
-    if isfield(nl, 'H') && nl.H < cfg.H
+    meth = 'resample';  if isfield(nl, 'sim_method'), meth = nl.sim_method; end
+    fprintf('  null %s: R = %d, innovations ''%s''\n', nf, nl.n_rep, meth);
+    if isfield(nl, 'H') && nl.H < cfg.H && ~POOLED_PROTOCOL_EXACT
         fprintf('  note: null simulated at H = %d, run at H = %d: exact for the independent estimator on h <= %d, an approximation for the pooled one.\n', nl.H, cfg.H, h_early(2));
     end
-    prot = ea_apply_protocol(sets, nl, vn, h_early, [], fullfile(P.results, sprintf('%s_tau_protocol.csv', tag)), ...
-                             struct('design_key', dkey, 'force', false));
-    save(fullfile(P.results, sprintf('%s_protocol.mat', tag)), 'prot', 'nf', 'dkey');
-else
-    fprintf(['  no null for this design yet (%s).  Run\n' ...
-             '    run_null_calibration(struct(''p'', %d, ''null'', struct(''n_rep'', 200, ''dataset'', ''%s'', ''stem'', ''%s'')))\n' ...
-             '  and rerun with only DO_B = true.\n'], nf, cfg.p, DATASET, strrep(tag, '_quick', ''));
+    % QUICK runs have a different H / window and therefore a different design
+    % key; the mismatch is then a warning (interface check), never a result
+    pv = ea_apply_protocol(sets_prot, nl, vn, h_early, [], fullfile(P.results, sprintf('%s_tau_protocol%s.csv', tag, suf)), ...
+                           struct('design_key', dkey, 'force', QUICK));
+    pv.null_file = nf;  pv.null_method = meth;  pv.null_R = nl.n_rep;
+    nulls_used{end + 1} = nf;  %#ok<SAGROW>
+    if isempty(suf), prot = pv; else, prot_variants.(suf(2:end)) = pv; end
+end
+if isempty(prot) && ~isempty(fieldnames(prot_variants))
+    fn = fieldnames(prot_variants);  prot = prot_variants.(fn{1});
+    fprintf('  (no iid null: step E will use the %s null''s escapes)\n', fn{1});
+end
+if ~isempty(nulls_used)
+    save(fullfile(P.results, sprintf('%s_protocol.mat', tag)), 'prot', 'prot_variants', 'nulls_used', 'dkey', 'POOLED_PROTOCOL_EXACT');
 end
 end
 
@@ -336,14 +392,21 @@ for ip = 1:numel(PLIST)
                 'lambda', bf.lambda(1, :), 'relp', relp, 'T', T, 'ptag', ptag, 'dkey', ...
                 ea_design_key(ds, cfp, struct('h_early', hep)));
     save(rf, '-struct', 'S_');
-    nfp = fullfile(P.results, sprintf('null_calibration_%s.mat', strrep(ptag, '_quick', '')));
-    if exist(nfp, 'file') ~= 2 && strcmp(SYSTEM, 'lev4') && PLIST(ip) == 12 && exist(fullfile(P.results, 'null_calibration_p12_levels.mat'), 'file') == 2
-        nfp = fullfile(P.results, 'null_calibration_p12_levels.mat');
+    found = {};
+    for v = 1:numel(NULL_VARIANTS)
+        suf = NULL_VARIANTS{v};
+        nfp = fullfile(P.results, sprintf('null_calibration_%s%s.mat', strrep(ptag, '_quick', ''), suf));
+        if exist(nfp, 'file') ~= 2 && isempty(suf) && strcmp(SYSTEM, 'lev4') && PLIST(ip) == 12 && ...
+                exist(fullfile(P.results_legacy, 'null_calibration_p12_levels.mat'), 'file') == 2
+            nfp = fullfile(P.results_legacy, 'null_calibration_p12_levels.mat');
+        end
+        if exist(nfp, 'file') == 2
+            lab = sprintf('%s p=%d%s', SYSTEM, PLIST(ip), strrep(suf, '_', ' '));
+            spec(end + 1) = struct('label', lab, 'result_file', rf, 'null_file', nfp, 'held_blocks', []);  %#ok<SAGROW>
+            found{end + 1} = tern(isempty(suf), 'iid', suf(2:end));  %#ok<SAGROW>
+        end
     end
-    fprintf('  p = %2d: BVAR lambda %.3f, headline F_eff %.2f, %.1f min; null %s\n', PLIST(ip), bv.lambda, relp.fs.F_eff, toc(t_d) / 60, tern(exist(nfp, 'file') == 2, 'found', 'MISSING'));
-    if exist(nfp, 'file') == 2
-        spec(end + 1) = struct('label', sprintf('%s p=%d', SYSTEM, PLIST(ip)), 'result_file', rf, 'null_file', nfp, 'held_blocks', []);  %#ok<SAGROW>
-    end
+    fprintf('  p = %2d: BVAR lambda %.3f, headline F_eff %.2f, %.1f min; nulls found: %s\n', PLIST(ip), bv.lambda, relp.fs.F_eff, toc(t_d) / 60, tern(isempty(found), 'NONE', strjoin(found, ', ')));
 end
 if ~isempty(spec)
     ea_cross_p_table(spec, fullfile(P.results, sprintf('iv_%s_cross_p%s.csv', SYSTEM, tern(QUICK, '_quick', ''))));

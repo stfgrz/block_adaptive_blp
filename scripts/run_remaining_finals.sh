@@ -5,7 +5,7 @@
 # survive an interruption of the shell that started them (an earlier run
 # of these experiments was killed when the launching session paused).
 set -u
-cd /home/user/block_adaptive_blp
+cd "$(dirname "$0")/.."   # repository root, wherever the clone lives
 echo "started at $(date -u +%H:%M)"
 ./scripts/run_final_parallel.sh correct      500 4
 echo "correct done at $(date -u +%H:%M)"

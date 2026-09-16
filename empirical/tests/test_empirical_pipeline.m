@@ -26,7 +26,7 @@ function test_empirical_pipeline()
 % It produces no empirical result and it does not pretend to.  The
 % fixture is simulated data; every number computed from it here is
 % discarded.  Empirical results require the real series -- see
-% empirical/README_EMPIRICAL.md and fetch_outcome_data.m.
+% empirical/README.md and fetch_outcome_data.m.
 
 fprintf('test_empirical_pipeline:\n');
 
@@ -165,8 +165,9 @@ rmdir(pdir, 's');
 fprintf('  provenance: recorded on download, preserved on re-validation: OK\n');
 
 % --- 5. the synthetic guard ----------------------------------------------
-guarded = {fullfile(P.empirical, 'RUN_EMPIRICAL.m'), ...
-           fullfile(P.empirical, 'SMOKE_TEST_EMPIRICAL.m')};
+guarded = {fullfile(P.legacy, 'RUN_EMPIRICAL_V1.m'), ...
+           fullfile(P.legacy, 'SMOKE_TEST_EMPIRICAL_V1.m'), ...
+           fullfile(P.empirical, 'RUN_EMPIRICAL_IV.m')};
 for k = 1:numel(guarded)
     txt = fileread(guarded{k});
     assert(~isempty(strfind(txt, 'synthetic')), ...
@@ -176,7 +177,7 @@ ds_syn = load(fix_path);
 assert(isfield(ds_syn, 'synthetic') && ds_syn.synthetic, ...
     'the saved fixture lost its synthetic stamp');
 delete(fix_path);
-fprintf('  both drivers carry the synthetic-dataset guard: OK\n');
+fprintf('  all three drivers carry the synthetic-dataset guard: OK\n');
 
 fprintf('PASS: test_empirical_pipeline\n\n');
 end

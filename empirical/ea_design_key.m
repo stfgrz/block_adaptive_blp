@@ -6,7 +6,7 @@ function [key, info] = ea_design_key(ds_or_varnames, cfg, extra)
 % tau_bar is measured relative to lambda_h, which depends on the system,
 % the sample, the lag order, the horizon window and the prior options, so a
 % null calibration is only valid for the design it was simulated under
-% (CH7_REDESIGN.md Sec. 7).  This function renders every design-relevant
+% (DESIGN.md Sec. 7).  This function renders every design-relevant
 % choice into ONE canonical string and appends a short hash of it.  The
 % null file stores the key; ea_apply_protocol refuses a null whose key
 % differs from the run's, so no threshold can be read against the wrong

@@ -15,10 +15,10 @@ The numbers quoted below come from
 
 ```matlab
 S = run_sensitivity_approximations(struct('mc_file', ...
-        fullfile('results', 'mc_headline_sparse.mat')));
+        fullfile('results', 'simulation', 'mc_headline_sparse.mat')));
 ```
 
-which writes `results/sensitivity_approximations.csv`.
+which writes `results/simulation/sensitivity_approximations.csv`.
 
 ## The numbers, in one table
 
@@ -241,7 +241,7 @@ the misspecification is. Every report of the grid says so.
 
 Both are options that default to the published FMAR behaviour and are
 switched on only by the euro-area drivers; both are documented with their
-evidence in `empirical/README_EMPIRICAL.md`, Status 2–3.
+evidence in `empirical/docs/DESIGN_V1_LEGACY.md` and `empirical/docs/RESULTS_LOG.md` Section 2.
 
 **Prior-scale floor** (`cfg.fmar.psi_floor`). FMAR's Newey–West long-run
 scale falls to a fifth of the residual variance for the near-white-noise

@@ -4,7 +4,7 @@ function bz = ea_identify_proxy(bvar, Y, z, cfg, opts)
 %
 % PURPOSE
 % -------
-% v2 identification (docs/CH7_REDESIGN.md Sec. 1).  The monthly instrument
+% v2 identification (docs/DESIGN.md Sec. 1).  The monthly instrument
 % z_t never enters the VAR or the local projections; it is used once, here:
 %
 %     u_t  = y_t - B' z_{t-1}          VAR(p) innovations at the posterior mean

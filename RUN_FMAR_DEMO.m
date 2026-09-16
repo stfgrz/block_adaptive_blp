@@ -44,8 +44,10 @@ addpath(fullfile(this_dir, 'config'), fullfile(this_dir, 'dgp'), ...
         fullfile(this_dir, 'samplers'), fullfile(this_dir, 'montecarlo'), ...
         fullfile(this_dir, 'plots'), fullfile(this_dir, 'tests'), ...
         fullfile(this_dir, 'utils'));
-results_dir = fullfile(this_dir, 'results');
+results_dir = fullfile(this_dir, 'results', 'simulation');
+fig_dir = fullfile(results_dir, 'figures');
 if ~exist(results_dir, 'dir'), mkdir(results_dir); end
+if ~exist(fig_dir, 'dir'), mkdir(fig_dir); end
 
 % Figures are optional: on a headless machine Octave may have no
 % graphics toolkit at all, and `figure` would then abort the script
@@ -123,8 +125,8 @@ if CAN_PLOT
     fig1 = plot_irfs(dgp.theta_true, est_list, cfg, ...
                      'FMAR mode: IRFs, sparse misspecification');
     if cfg.demo.save_figures
-        print(fig1, fullfile(results_dir, 'fig_fmar_irf_sparse.png'), '-dpng', '-r120');
-        fprintf('  Figure saved to results/fig_fmar_irf_sparse.png\n\n');
+        print(fig1, fullfile(fig_dir, 'fig_fmar_irf_sparse.png'), '-dpng', '-r120');
+        fprintf('  Figure saved to results/simulation/figures/fig_fmar_irf_sparse.png\n\n');
     end
 end
 

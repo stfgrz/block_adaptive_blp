@@ -10,7 +10,7 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 NPROC="${1:-4}"
-LOGDIR="${2:-$ROOT/results/grid/logs}"
+LOGDIR="${2:-$ROOT/results/simulation/grid/logs}"
 mkdir -p "$LOGDIR"
 
 NCELL=$(octave-cli --no-gui --quiet --eval \

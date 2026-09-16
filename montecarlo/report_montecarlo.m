@@ -9,7 +9,7 @@ function report_montecarlo(src, fid)
 %
 % USAGE
 % -----
-%   report_montecarlo('results/mc_final_sparse.mat')   % a saved result
+%   report_montecarlo('results/simulation/mc_headline_sparse.mat')   % a saved result
 %   report_montecarlo(s)                               % a summary struct
 %   report_montecarlo(src, fid)                        % write to a file
 %

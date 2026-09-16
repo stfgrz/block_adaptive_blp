@@ -3,7 +3,7 @@ function inst = build_instrument_series(opts)
 %
 % PURPOSE
 % -------
-% v2 of the shock construction (docs/CH7_REDESIGN.md Sec. 2-3).  Reads the
+% v2 of the shock construction (docs/DESIGN.md Sec. 2-3).  Reads the
 % 54-column extract of the EA-EMPD workbook (raw/ea_empd_events_full.csv;
 % Altavilla, Gurkaynak, Kind & Laeven 2025, ECB WP 3157) and produces, for
 % every combination below, a MONTHLY series in BASIS POINTS, zero in months

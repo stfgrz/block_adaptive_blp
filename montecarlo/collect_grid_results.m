@@ -24,7 +24,7 @@ function T = collect_grid_results(in_dir, out_csv)
 %
 % INPUTS
 % ------
-% in_dir  : folder of grid_*.mat files (default <repo>/results/grid).
+% in_dir  : folder of grid_*.mat files (default <repo>/results/simulation/grid).
 % out_csv : where to write the table (default <in_dir>/grid_summary.csv).
 %
 % OUTPUTS
@@ -33,7 +33,7 @@ function T = collect_grid_results(in_dir, out_csv)
 
 if nargin < 1 || isempty(in_dir)
     root = fileparts(fileparts(mfilename('fullpath')));
-    in_dir = fullfile(root, 'results', 'grid');
+    in_dir = fullfile(root, 'results', 'simulation', 'grid');
 end
 if nargin < 2 || isempty(out_csv)
     out_csv = fullfile(in_dir, 'grid_summary.csv');

@@ -13,7 +13,7 @@ function ok = ea_fetch_v2_series(opts)
 %                      monthly average (fallback indicator; credit premium)
 %
 % The 1-month OIS LEVEL (Refinitiv EUREON1M=) is not on the portal: see
-% empirical/docs/MONDAY_DATA_CHECKLIST.md and import_ois_daily.m.
+% empirical/docs/DATA.md and import_ois_daily.m.
 %
 % opts.dry_run (default false) prints the URLs and does nothing; opts.only
 % (cell of file names) restricts the set; opts.force re-downloads.  Each

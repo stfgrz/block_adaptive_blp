@@ -42,7 +42,7 @@ function [psi_h, info] = fmar_prior_scale(x, p, h, floor_at_var)
 % prior on every coefficient attached to variable v far too loose, and
 % the marginal likelihood then compensates by shrinking the GLOBAL
 % lambda_h for every block -- on the euro-area data to ~0.01, with a
-% bimodal objective at long horizons (see empirical/README_EMPIRICAL.md).
+% bimodal objective at long horizons (see empirical/README.md and empirical/docs/DESIGN_V1_LEGACY.md).
 % With floor_at_var = true,
 %     psi_j(h) = max( NW long-run variance, u'u / nT ),
 % i.e. a long-run variance estimate is never allowed below the variance

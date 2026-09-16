@@ -2,7 +2,7 @@ function res = run_block_ablation(opts)
 % PURPOSE
 % -------
 % Out-of-sample BLOCK-ABLATION validation of the escapes found by the
-% block-adaptive BLP (empirical/docs/CH7_REDESIGN.md, Section 8).  Without
+% block-adaptive BLP (empirical/docs/DESIGN.md, Section 8).  Without
 % ground truth, an escape of cell (i, g) -- equation i letting the lag
 % block of variable g leave the BVAR prior -- is credible if releasing
 % that block buys predictive accuracy.  So, in a pseudo out-of-sample
@@ -48,7 +48,8 @@ function res = run_block_ablation(opts)
 % INPUTS (opts, all optional)
 % ---------------------------
 %   .dataset        path to a .mat with Y (T x K), varnames, ym, isrw
-%                   (default ea_paths().dataset), or that struct itself
+%                   (default ea_paths().dataset, the ois4 headline system),
+%                   or that struct itself
 %   .cells          (n x 2) cell array {equation_name, block_name} to
 %                   ablate; names from varnames (block g = variable g
 %                   under the per-variable block scheme), or indices
@@ -63,7 +64,7 @@ function res = run_block_ablation(opts)
 %   .gibbs_n_burn/.gibbs_n_keep   chain lengths (default 300 / 700)
 %   .seed           base seed (default 7101); free and ablated runs of one
 %                   (origin, equation) share the same seed
-%   .out_stem       results are results/ablation_<stem>.mat/.csv
+%   .out_stem       results are results/empirical/ablation_<stem>.mat/.csv
 %   .out_dir        output folder (default ea_paths().results)
 %   .quick          true = tiny settings for tests (p = 2, H = 4,
 %                   h_eval = [2 4], 3 origins, chains 40 + 80, 40 NIW

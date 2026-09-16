@@ -13,10 +13,10 @@ CSV alongside it; nothing is transcribed by hand.
 > Complete as of this revision (2026-09-09, re-verified 2026-09-12): the
 > 13-cell exploratory grid (`R = 40`), all four headline runs
 > (`R = 500` for correct and sparse, `R = 250` for intermediate and
-> dense), the sensitivity analysis, and the full test suite (17 tests,
-> MATLAB R2025b). `results/REPORT.txt` is regenerated from the stored
+> dense), the sensitivity analysis, and the full test suite (21 tests,
+> MATLAB R2025b). `results/simulation/REPORT.txt` is regenerated from the stored
 > files by `write_results_report`. The empirical chapter has its own
-> note, `empirical/docs/CH7_RESULTS.md`.
+> note, `empirical/docs/RESULTS.md` (chronological log in `RESULTS_LOG.md`).
 
 ---
 
@@ -190,7 +190,7 @@ Rao-Blackwellised.
 
 ## 2. Exploratory grid — where does adaptation help?
 
-`results/grid/grid_summary.csv`, produced by
+`results/simulation/grid/grid_summary.csv`, produced by
 `scripts/run_grid_parallel.sh` and `collect_grid_results`.
 Thirteen cells at `R = 40`, `H = 12`.
 
@@ -262,7 +262,7 @@ But the false-positive baseline is **not a constant**: 0.42 at `p = 2`,
 
 ## 3. Headline Monte Carlo runs
 
-`results/mc_headline_<dgp>.mat`, `R = 500` (sparse, correct) and `R = 250`
+`results/simulation/mc_headline_<dgp>.mat`, `R = 500` (sparse, correct) and `R = 250`
 (intermediate, dense), at `K = 3`, `p = 2`, `T = 200`, `H = 20`, FMAR
 mode with `h1_mode = 'lp'`.
 
@@ -306,7 +306,7 @@ misspecification remedy.
 
 ### The single most informative table in the study
 
-`results/mc_headline_sparse.mat`, `R = 500`, sparse DGP. Paired
+`results/simulation/mc_headline_sparse.mat`, `R = 500`, sparse DGP. Paired
 comparison against the global FMAR baseline — every estimator sees the
 same simulated sample in every replication, so the *difference* is
 estimated far more precisely than either level (the per-replication MSEs
@@ -338,7 +338,7 @@ estimator buys the early-horizon bias reduction essentially for free.
 
 ### Where adaptation actively hurts: the intermediate DGP
 
-`results/mc_headline_intermediate.mat`, `R = 250`. Same lag-3
+`results/simulation/mc_headline_intermediate.mat`, `R = 250`. Same lag-3
 misspecification, but present in **every equation** (`A3(:,1) ≠ 0`)
 rather than in one.
 
@@ -426,7 +426,7 @@ there. Equation 3 is found essentially every time.
 
 ### Detection and localisation against the R = 500 correct-DGP null
 
-`results/mc_headline_correct.mat`, same design, nothing misspecified —
+`results/simulation/mc_headline_correct.mat`, same design, nothing misspecified —
 so every number in its column is a false-positive rate.
 
 | rule | sparse (true block) | correct (false positive) | usable? |
@@ -477,7 +477,7 @@ thesis motivates it.
 
 ## 4. Sensitivity of the methodological approximations
 
-`results/sensitivity_approximations.csv`; the reasoning is in
+`results/simulation/sensitivity_approximations.csv`; the reasoning is in
 `docs/APPROXIMATIONS.md`.
 
 Full reasoning and the tables are in `docs/APPROXIMATIONS.md`. In one

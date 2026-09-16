@@ -10,7 +10,7 @@ function out_file = run_mc_chunk(preset, dgp_name, r0, r1, out_file, overrides)
 % USAGE (one process per chunk; the shell driver launches four at a time)
 % -----------------------------------------------------------------------
 %   octave --eval "addpath(genpath('<repo>')); \
-%       run_mc_chunk('final','sparse',1,125,'<repo>/results/chunks/final_sparse_1.mat')"
+%       run_mc_chunk('final','sparse',1,125,'<repo>/results/simulation/chunks/final_sparse_1.mat')"
 %
 % INPUTS
 % ------

@@ -1,6 +1,6 @@
 function rel = ea_relevance_iv(Y, bvar, z, cfg, opts)
 % EA_RELEVANCE_IV  Instrument relevance, timing and influence diagnostics
-% for the external-instrument design (docs/CH7_REDESIGN.md Sec. 5).
+% for the external-instrument design (docs/DESIGN.md Sec. 5).
 %
 % Everything is computed on the VAR(p) innovations u_t = y_t - B' z_{t-1}
 % at the BVAR posterior mean (the object the proxy identification uses),
@@ -38,6 +38,23 @@ function rel = ea_relevance_iv(Y, bvar, z, cfg, opts)
 %               non-zero values
 %   subsample   first stage per window in opts.subsamples (default 2001-08,
 %               2009-11, 2012-19)
+%   anatomy     WHERE the first-stage covariance comes from: the signed
+%               share of sum_t (z_t - zbar)(u_st - ubar) contributed by each
+%               year (share_by_year), by each opts.subsamples window
+%               (share_window), by the five largest months (share_top5), the
+%               number of months that carry half of the ABSOLUTE covariance
+%               mass (n_half_abs), the ten largest months (top_ym, top_share)
+%               and sd(u_s) per window (sd_us_window).  An instrument whose
+%               covariance sits in a handful of crisis months identifies the
+%               IRF from those months only, whatever the full-sample F says
+%   predict.lags   z_t on the FULL lag set the innovations condition on
+%               (constant + K*p lags, event months): R2, HAC Wald/q, p-value,
+%               with q = K*p restrictions -- a rough guide only -- and
+%               .pred_change, the one-regressor version: z_t on the BVAR
+%               one-step forecast of the indicator CHANGE (slope, HAC t, R2).
+%               Both test the lead-lag exogeneity that the proxy route needs
+%               CONDITIONAL on the lags: a significant slope means the raw
+%               surprise is partly predictable from the VAR's own past
 %
 % INPUTS
 % ------
@@ -117,6 +134,33 @@ oz = isfinite(z);
 zc = z(oz);
 pr.ar1_all = ar1(zc);
 ze = z(oz & z ~= 0);  pr.ar1_events = ar1(ze);
+% z on the FULL lag set of the VAR (rows t = p+1..T; K*p lag columns)
+Xl = Zall(1:end - 1, 2:end);
+evt = zz ~= 0;
+if isfield(opts, 'event_months') && ~isempty(opts.event_months), evt = logical(opts.event_months(tt)); end
+ol = ok & evt;
+lg = struct('available', false);
+if sum(ol) > size(Xl, 2) + 20
+    Xo = [ones(sum(ol), 1), Xl(ol, :)];  yo = zz(ol);
+    bl = Xo \ yo;  ul = yo - Xo * bl;  Vl = hac_cov(Xo, ul, L);
+    ql = size(Xl, 2);  Rl = [zeros(ql, 1), eye(ql)];
+    Wl = (Rl * bl)' * ((Rl * Vl * Rl') \ (Rl * bl));
+    lg.available = true;  lg.N = sum(ol);  lg.q = ql;
+    lg.R2 = 1 - sum(ul.^2) / sum((yo - mean(yo)).^2);
+    lg.F_hac = Wl / ql;  lg.p_value = 1 - chi2cdf_(Wl, ql);
+    lg.note = 'q = K*p restrictions on ~200 event months: chi-square p-value is a rough guide; see pred_change';
+end
+pred_d = Zall(1:end - 1, :) * bvar.B(:, s) - Y(p:T - 1, s);       % E[i_t | lags] - i_{t-1}
+o2 = ok & evt;
+if sum(o2) > 20
+    Xp = [ones(sum(o2), 1), pred_d(o2)];  yo = zz(o2);  bp = Xp \ yo;  up = yo - Xp * bp;
+    Vp = hac_cov(Xp, up, L);
+    lg.pred_change = struct('b', bp(2), 't_hac', bp(2) / sqrt(Vp(2, 2)), ...
+                            'R2', 1 - sum(up.^2) / sum((yo - mean(yo)).^2), 'N', sum(o2));
+else
+    lg.pred_change = struct('b', NaN, 't_hac', NaN, 'R2', NaN, 'N', sum(o2));
+end
+pr.lags = lg;
 rel.predict = pr;
 % --- influence -------------------------------------------------------------------------
 zo = zz(ok);  uo = us(ok);  ymo = ymm(ok);  n = numel(zo);
@@ -157,6 +201,26 @@ for j = 1:size(ss, 1)
     end
 end
 rel.subsample = sub;
+% --- anatomy: where the first-stage covariance comes from -----------------------------
+zcn = zo - mean(zo);  ucn = uo - mean(uo);
+contrib = zcn .* ucn;  tot = sum(contrib);
+an = struct('total', tot, 'n', n);
+yrs = floor((ymo - 1) / 12);  an.year = unique(yrs)';
+an.share_by_year = zeros(size(an.year));
+for j = 1:numel(an.year), an.share_by_year(j) = sum(contrib(yrs == an.year(j))) / tot; end
+an.window = ss;  an.share_window = nan(size(ss, 1), 1);  an.sd_us_window = nan(size(ss, 1), 1);
+for j = 1:size(ss, 1)
+    w0 = 12 * ss(j, 1) + ss(j, 2);  w1 = 12 * ss(j, 3) + ss(j, 4);
+    o = ymo >= w0 & ymo <= w1;
+    if any(o), an.share_window(j) = sum(contrib(o)) / tot;  an.sd_us_window(j) = std(uo(o)); end
+end
+[~, ord] = sort(abs(contrib), 'descend');
+nt = min(10, n);
+an.top_ym = ymo(ord(1:nt));  an.top_share = contrib(ord(1:nt)) / tot;
+an.share_top5 = sum(contrib(ord(1:min(5, n)))) / tot;
+cabs = cumsum(abs(contrib(ord))) / sum(abs(contrib));
+an.n_half_abs = find(cabs >= 0.5, 1);
+rel.anatomy = an;
 
 % --- print -------------------------------------------------------------------------------------
 if opts.verbose
@@ -184,6 +248,19 @@ if opts.verbose
     for j = 1:numel(sub)
         fprintf('  %d-%02d..%d-%02d: b = %.4f, t_hac = %.2f, F_eff = %.2f, N = %d\n', sub(j).window, ...
                 sub(j).fs.b, sub(j).fs.t_hac, sub(j).fs.F_eff, sub(j).fs.N);
+    end
+    fprintf('  anatomy: covariance share by window');
+    for j = 1:size(an.window, 1)
+        fprintf(' | %d-%d: %.0f%% (sd u_s %.3f)', an.window(j, 1), an.window(j, 3), 100 * an.share_window(j), an.sd_us_window(j));
+    end
+    fprintf('\n           top 5 months carry %.0f%%; %d months carry half the absolute mass; largest:', 100 * an.share_top5, an.n_half_abs);
+    for j = 1:min(5, nt)
+        fprintf(' %d-%02d(%.0f%%)', floor((an.top_ym(j) - 1) / 12), an.top_ym(j) - 12 * floor((an.top_ym(j) - 1) / 12), 100 * an.top_share(j));
+    end
+    fprintf('\n');
+    if lg.available
+        fprintf('  predictability from the VAR lags (q = %d, N = %d): R2 = %.3f, HAC Wald/q = %.2f, p = %.4f (rough); on the BVAR-predicted change: slope %.2f, t_hac = %.2f, R2 = %.3f\n', ...
+                lg.q, lg.N, lg.R2, lg.F_hac, lg.p_value, lg.pred_change.b, lg.pred_change.t_hac, lg.pred_change.R2);
     end
 end
 if ~isempty(opts.out_csv), write_csv(rel, opts.out_csv); end
@@ -279,5 +356,19 @@ for j = 1:numel(rel.subsample)
     put('subsample', sprintf('F_eff_%d%02d_%d%02d', w), rel.subsample(j).fs.F_eff);
     put('subsample', sprintf('b_%d%02d_%d%02d', w), rel.subsample(j).fs.b);
 end
+an = rel.anatomy;
+for j = 1:size(an.window, 1)
+    put('anatomy', sprintf('share_%d_%d', an.window(j, 1), an.window(j, 3)), an.share_window(j));
+    put('anatomy', sprintf('sd_us_%d_%d', an.window(j, 1), an.window(j, 3)), an.sd_us_window(j));
+end
+for j = 1:numel(an.year), put('anatomy', sprintf('share_%d', an.year(j)), an.share_by_year(j)); end
+put('anatomy', 'share_top5', an.share_top5);  put('anatomy', 'n_half_abs', an.n_half_abs);
+for j = 1:numel(an.top_ym), put('anatomy', sprintf('top%d_ym', j), an.top_ym(j));  put('anatomy', sprintf('top%d_share', j), an.top_share(j)); end
+if rel.predict.lags.available
+    put('predict', 'lags_R2', rel.predict.lags.R2);  put('predict', 'lags_F_hac', rel.predict.lags.F_hac);
+    put('predict', 'lags_p_value', rel.predict.lags.p_value);  put('predict', 'lags_q', rel.predict.lags.q);
+end
+put('predict', 'predchg_b', rel.predict.lags.pred_change.b);  put('predict', 'predchg_t_hac', rel.predict.lags.pred_change.t_hac);
+put('predict', 'predchg_R2', rel.predict.lags.pred_change.R2);
 fclose(fid);
 end

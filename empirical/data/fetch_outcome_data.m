@@ -16,7 +16,7 @@ function ok = fetch_outcome_data(opts)
 %   rate1y_ea.csv  1-year nominal rate LEVEL, monthly average.  Baseline:
 %                  12-month EURIBOR (available from 1999; caveat: contains
 %                  a bank credit premium, material 2008-2012 -- documented
-%                  in docs/CH7_DESIGN.md Sec. 2).  Preferred if you can
+%                  in docs/DESIGN_V1_LEGACY.md Sec. 2).  Preferred if you can
 %                  locate it in the ECB portal: a 1-year OIS/EONIA-swap
 %                  level series.               [ECB Data Portal, FM.*]
 %   stoxx50_ea.csv EURO STOXX 50 price index, monthly close/average level.
@@ -156,7 +156,7 @@ spec(2).manual = ['Eurostat Data Browser, dataset prc_hicp_midx "HICP ' ...
   'monthly index".  Filter: coicop = CP00 (all-items), unit = I15 ' ...
   '(2015 = 100), geo = EA (euro area, changing composition), period from ' ...
   '1999-01.  Download > SDMX-CSV.  (This is the NSA index; see ' ...
-  'CH7_DESIGN Sec. 2 for the seasonality discussion -- p = 12 absorbs it.)'];
+  'DESIGN_V1_LEGACY.md Sec. 2 for the seasonality discussion -- p = 12 absorbs it.)'];
 
 spec(3).file = 'rate1y_ea.csv';
 spec(3).series = 'ECB FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA (12-month Euribor, monthly average)';
@@ -170,7 +170,7 @@ spec(3).manual = ['ECB Data Portal (data.ecb.europa.eu), search "Euribor ' ...
   'the portal shows a different key, use whatever it gives you.  If you ' ...
   'find a 1-year OIS / EONIA swap LEVEL series with 1999+ coverage, ' ...
   'prefer it under the same filename and note the swap in the thesis ' ...
-  '(it removes the bank credit premium discussed in CH7_DESIGN Sec. 2).'];
+  '(it removes the bank credit premium discussed in DESIGN_V1_LEGACY.md Sec. 2).'];
 
 spec(4).file = 'stoxx50_ea.csv';
 spec(4).series = 'ECB FM.M.U2.EUR.DS.EI.DJES50I.HSTA (EURO STOXX 50 price index, monthly)';

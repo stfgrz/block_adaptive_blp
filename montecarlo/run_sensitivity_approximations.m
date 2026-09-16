@@ -91,7 +91,7 @@ opts = dflt(opts, 'n_draws', 20);
 opts = dflt(opts, 'seed', 202);
 opts = dflt(opts, 'mc_file', '');
 root = fileparts(fileparts(mfilename('fullpath')));
-opts = dflt(opts, 'out_csv', fullfile(root, 'results', 'sensitivity_approximations.csv'));
+opts = dflt(opts, 'out_csv', fullfile(root, 'results', 'simulation', 'sensitivity_approximations.csv'));
 
 cfg = mc_preset(opts.preset);
 cfg.gibbs.n_burn = cfg.mc.gibbs_n_burn;

@@ -15,14 +15,14 @@ function out_file = write_results_report(out_file, results_dir)
 %
 % USAGE
 % -----
-%   write_results_report                       % -> results/REPORT.txt
+%   write_results_report                       % -> results/simulation/REPORT.txt
 %   write_results_report('somewhere/else.txt')
 %
 % INPUTS
 % ------
-% out_file    : destination (default <repo>/results/REPORT.txt).
+% out_file    : destination (default <repo>/results/simulation/REPORT.txt).
 % results_dir : where to look for mc_*.mat and grid/ (default
-%               <repo>/results).
+%               <repo>/results/simulation).
 %
 % OUTPUTS
 % -------
@@ -35,15 +35,15 @@ function out_file = write_results_report(out_file, results_dir)
 % anything else) so successive versions of the file are comparable line
 % by line.  The earlier baselines are kept rather than overwritten: they
 % predate the h = 2..H metric, the Rao-Blackwellised point estimate and
-% the pooled estimator, and results/README.txt says so.  A summary saved before the current metrics existed is
+% the pooled estimator, and results/README.md says so.  A summary saved before the current metrics existed is
 % recomputed from its stored replication output.
 
 root = fileparts(fileparts(mfilename('fullpath')));
 if nargin < 1 || isempty(out_file)
-    out_file = fullfile(root, 'results', 'REPORT.txt');
+    out_file = fullfile(root, 'results', 'simulation', 'REPORT.txt');
 end
 if nargin < 2 || isempty(results_dir)
-    results_dir = fullfile(root, 'results');
+    results_dir = fullfile(root, 'results', 'simulation');
 end
 
 d = dir(fullfile(results_dir, 'mc_*.mat'));

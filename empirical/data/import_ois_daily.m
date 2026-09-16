@@ -4,7 +4,7 @@ function m = import_ois_daily(opts)
 %
 % PURPOSE
 % -------
-% The v2 design (docs/CH7_REDESIGN.md Sec. 3-4) pairs the 1-month OIS
+% The v2 design (docs/DESIGN.md Sec. 3-4) pairs the 1-month OIS
 % SURPRISE with a 1-month OIS LEVEL as policy indicator, and the monthly
 % aggregation of the surprise must match how the level is dated.  This
 % function turns a daily export into the monthly candidates and validates it.
@@ -69,7 +69,7 @@ opts = sd(opts, 'verbose', true);
 
 assert(exist(opts.daily_csv, 'file') == 2, ...
        ['import_ois_daily: %s not found.\nPlace the daily EUREON1M= export there ' ...
-        '(see empirical/docs/MONDAY_DATA_CHECKLIST.md).'], opts.daily_csv);
+        '(see empirical/docs/DATA.md).'], opts.daily_csv);
 
 % --- read -------------------------------------------------------------------------
 fid = fopen(opts.daily_csv, 'r');

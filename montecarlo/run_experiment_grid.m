@@ -17,7 +17,7 @@ function files = run_experiment_grid(case_idx, out_dir, preset)
 % INPUTS
 % ------
 % case_idx : indices into experiment_grid_spec (default: all).
-% out_dir  : output folder (default <repo>/results/grid).
+% out_dir  : output folder (default <repo>/results/simulation/grid).
 % preset   : mc_preset name (default 'grid').
 %
 % OUTPUTS
@@ -36,7 +36,7 @@ cases = experiment_grid_spec();
 if nargin < 1 || isempty(case_idx), case_idx = 1:numel(cases); end
 if nargin < 2 || isempty(out_dir)
     root = fileparts(fileparts(mfilename('fullpath')));
-    out_dir = fullfile(root, 'results', 'grid');
+    out_dir = fullfile(root, 'results', 'simulation', 'grid');
 end
 if nargin < 3 || isempty(preset), preset = 'grid'; end
 if exist(out_dir, 'dir') ~= 7, mkdir(out_dir); end

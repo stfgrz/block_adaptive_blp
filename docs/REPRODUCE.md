@@ -19,7 +19,7 @@ cd tests
 run_all_tests
 ```
 
-About 12 minutes in MATLAB (25 in Octave); 17 tests. `test_fmar_port` is skipped unless `FMAR_PATH` points
+About 12 minutes in MATLAB (25 in Octave); 21 tests. `test_fmar_port` is skipped unless `FMAR_PATH` points
 at the `demo_IRFs` folder of the FMAR replication package.
 
 ---
@@ -37,12 +37,13 @@ scales `tau` under both adaptive estimators, the exact `tau = 1` nesting
 check, and (with `cfg.demo.run_montecarlo = true`) a small Monte Carlo
 report.
 
-**Side effect.** Both demonstrations write into `results/`: `RUN_ME_FIRST`
-overwrites `mc_sparse.mat` and `fig1`–`fig5`, `RUN_FMAR_DEMO` overwrites
-`mc_fmar_{sparse,correct}.mat`, `fig_fmar_irf_sparse.png` and writes
-`mc_fmar_*` CSVs. Those `.mat`/`.png` files are tracked as the earliest
-baselines, so after a demo run restore them with
-`git checkout -- results/mc_fmar_*.mat results/mc_sparse.mat results/fig*.png`
+**Side effect.** Both demonstrations write into `results/simulation/`:
+`RUN_ME_FIRST` overwrites `mc_sparse.mat` and `figures/fig1`–`fig5`,
+`RUN_FMAR_DEMO` overwrites `mc_fmar_{sparse,correct}.mat`,
+`figures/fig_fmar_irf_sparse.png` and writes `mc_fmar_*` CSVs. Those
+`.mat`/`.png` files are tracked as the earliest baselines, so after a demo
+run restore them with
+`git checkout -- results/simulation/mc_fmar_*.mat results/simulation/mc_sparse.mat results/simulation/figures/`
 and delete the CSVs, unless you mean to replace them.
 
 ---
@@ -62,10 +63,10 @@ or, inside MATLAB/Octave:
 ```matlab
 run_experiment_grid                     % all cells, serially
 run_experiment_grid(3:5)                % a slice, for manual parallelism
-collect_grid_results                    % -> results/grid/grid_summary.csv
+collect_grid_results                    % -> results/simulation/grid/grid_summary.csv
 ```
 
-Outputs land in `results/grid/`: one `.mat` and one set of CSVs per
+Outputs land in `results/simulation/grid/`: one `.mat` and one set of CSVs per
 cell, plus `grid_summary.csv` with the per-cell verdict (improves RMSE /
 early horizons / diagnostic only / no signal).
 
@@ -98,10 +99,10 @@ setsid nohup scripts/run_remaining_finals.sh > finals.log 2>&1 < /dev/null &
 ```
 
 Progress is easiest to follow through the chunk files appearing in
-`results/chunks/`; Octave block-buffers stdout when it is redirected, so
+`results/simulation/chunks/`; Octave block-buffers stdout when it is redirected, so
 the per-chunk logs lag well behind the actual work.
 
-Each call writes `results/mc_headline_<dgp>.mat` plus the CSV exports.
+Each call writes `results/simulation/mc_headline_<dgp>.mat` plus the CSV exports.
 Roughly 3 hours per `R = 500` DGP on 4 cores.
 
 Serial equivalent (identical results, ~11 hours per DGP):
@@ -110,7 +111,7 @@ Serial equivalent (identical results, ~11 hours per DGP):
 cfg = mc_preset('final');
 mc  = run_montecarlo(cfg, 'sparse');
 s   = summarize_montecarlo(mc);
-save(fullfile('results', 'mc_headline_sparse.mat'), 'mc', 's', '-v7');
+save(fullfile('results', 'simulation', 'mc_headline_sparse.mat'), 'mc', 's', '-v7');
 ```
 
 The chunked and serial runs are **bit-identical**: replication `r`'s
@@ -122,7 +123,7 @@ merges.
 ### Reading the results
 
 ```matlab
-report_montecarlo('results/mc_headline_sparse.mat')
+report_montecarlo('results/simulation/mc_headline_sparse.mat')
 ```
 
 prints both integrated-RMSE conventions, the bias–variance
@@ -143,10 +144,10 @@ the `tau` diagnostics. The same numbers are in the CSVs:
 
 ```matlab
 run_sensitivity_approximations(struct('mc_file', ...
-    fullfile('results', 'mc_headline_sparse.mat')))
+    fullfile('results', 'simulation', 'mc_headline_sparse.mat')))
 ```
 
-Writes `results/sensitivity_approximations.csv`; the interpretation is
+Writes `results/simulation/sensitivity_approximations.csv`; the interpretation is
 in `docs/APPROXIMATIONS.md`.
 
 ---
@@ -172,91 +173,60 @@ the adaptive point estimates.
 
 ---
 
-## 6. Chapter 7 empirical pipeline
+## 6. Chapter 7 empirical pipeline (current design: external instrument)
 
-The four outcome series are third-party data and are **not** in the
-repository (they are on the author's machine, gitignored).
-
-```matlab
-build_shock_series();      % EA-EMPD events -> monthly surprises (ships with the repo)
-fetch_outcome_data();      % downloads and VALIDATES the four series
-assemble_dataset();        % -> empirical/data/ea_dataset.mat  (seconds)
-SMOKE_TEST_EMPIRICAL       % interface check on the real dataset (2 s)
-RUN_EMPIRICAL              % steps A-F, about 4 minutes in MATLAB at p = 12, H = 48
-                           % (PSI_FLOOR = false / INSTR_FIXED = false select the
-                           %  _nofloor / _allblocks variants)
-```
-
-The null calibrations (MATLAB, about 10 s per replication at `p = 12`):
+Full instructions, data sources and the design are in `empirical/README.md`,
+`empirical/docs/DATA.md` and `empirical/docs/DESIGN.md`. The outcome and
+indicator series are third-party data and are **not** in the repository
+(they sit gitignored on the author's machine; the EA-EMPD event extracts and
+the derived monthly instrument panel are shipped).
 
 ```matlab
-run_null_calibration(struct('null', struct('n_rep', 500)));                 % ~85 min
-run_null_calibration(struct('p', 2, 'null', struct('n_rep', 200)));
-run_null_calibration(struct('p', 6, 'null', struct('n_rep', 200)));
-run_null_calibration(struct('null', struct('n_rep', 200, 'fixed_tau', [], ...
-    'stem', 'p12_levels', ...
-    'dataset', fullfile(ea_paths().data, 'ea_dataset_levels.mat'))));
-DO_A = false; DO_B = false; DO_D = false; RUN_EMPIRICAL   % protocol tables
-```
-
-Outputs: `results/empirical_<tag>.mat`, `tau_heatmap_<tag>.csv`,
-`dose_response_<tag>.*`, `tau_jk_comparison_<tag>.csv`,
-`coherence_<tag>.csv`, `tau_protocol_<tag>.csv`, `null_calibration_*.mat`,
-`null_thresholds_*.csv`, and the level-system files `*_levels_*`.
-
-Without the data, the package is still testable:
-
-```matlab
-test_empirical_pipeline    % parses, builds shocks, runs all five
-                           % estimators on a synthetic fixture
-```
-
-The fixture is simulated data stamped `ds.synthetic = true`, and both
-`RUN_EMPIRICAL` and `SMOKE_TEST_EMPIRICAL` refuse a dataset carrying
-that stamp. **No empirical result in this project may be produced from
-it.** See `empirical/README_EMPIRICAL.md`.
-
-## 7. v2 empirical pipeline (external instrument; prepared 2026-09-13)
-
-Design: `empirical/docs/CH7_REDESIGN.md`; literature: `empirical/docs/CH7_LITERATURE.md`;
-what to obtain on Monday: `empirical/docs/MONDAY_DATA_CHECKLIST.md`. The v1 driver and its
-`p12*` outputs are the untouched legacy baseline. Everything below writes `results/iv_*`.
-
-```matlab
-addpath(genpath('/Users/stefanograziosi/Documents/GitHub/block_adaptive_blp'))
-build_instrument_series();                           % 34 monthly instruments from the full EA-EMPD extract (shipped)
-assemble_dataset_v2(struct('system', 'lev4'));       % {i1y, ip, hicp, stoxx} + instruments in ds.Z   (runs today)
-assemble_dataset_v2(struct('system', 'lev4_yoy'));   % HICP as year-on-year inflation                  (runs today)
-SYSTEM = 'lev4'; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))   % steps REL A B C D E, ~25 min
-```
-
-Nulls for each design (one per p; `run_null_calibration` stores a design key that the
-protocol checks):
-
-```matlab
-for p = [2 4 6 12], run_null_calibration(struct('p', p, 'null', struct('n_rep', 200, ...
-    'dataset', fullfile(ea_paths().data, 'ea_dataset_v2_lev4.mat'), 'stem', sprintf('iv_lev4_p%d', p)))); end
-SYSTEM = 'lev4'; DO_REL = false; DO_A = false; DO_C = false; DO_E = false; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))
-```
-
-Quick interface check on the real data (minutes, meaningless numbers): `QUICK = true; SYSTEM = 'lev4'; run(...RUN_EMPIRICAL_IV.m)`.
-The `ois4` / `ois6` systems need the daily `EUREON1M=` file and `ea_fetch_v2_series()`; see the checklist.
-Tests added: `test_fixed_tau_mask`, `test_null_modularity`, `test_lp_iv`, `test_empirical_iv` (all in `run_all_tests`).
-
-### 7a. Monday 2026-09-14: with the 1-month OIS in place
-
-```matlab
-addpath(genpath('/Users/stefanograziosi/Documents/GitHub/block_adaptive_blp'))
-import_ois_daily();                                  % raw/ois1m_ea_daily.csv (Date, Bid, Ask) -> derived/ois1m_ea_monthly.mat
-ea_fetch_v2_series();                                % SA HICP, loans, cost of borrowing, EONIA, 1M Euribor (ECB portal)
+addpath(genpath('<repo>'))
+build_instrument_series();                       % EA-EMPD workbook extract -> 51 monthly instruments (seconds)
+fetch_outcome_data();  ea_fetch_v2_series();     % Eurostat / ECB series (download + validation)
+import_ois_daily();                              % daily 1M OIS export -> monthly eom / avg (see DATA.md)
 jk = struct('path', fullfile(ea_paths().raw, 'shocks_ecb_mpd_me_m.csv'), 'column', 'MP_pm', 'name', 'jk_mp_pm', 'scale', 100);
-assemble_dataset_v2(struct('system', 'ois4', 'external', {{jk}}));   % the pre-specified headline system
-SYSTEM = 'ois4'; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))
-for p = [2 4 6 12], run_null_calibration(struct('p', p, 'null', struct('n_rep', 200, ...
-    'dataset', fullfile(ea_paths().data, 'ea_dataset_v2_ois4.mat'), 'stem', sprintf('iv_ois4_p%d', p)))); end
-SYSTEM = 'ois4'; DO_REL = false; DO_A = false; DO_C = false; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))
+assemble_dataset_v2(struct('system', 'ois4', 'external', {{jk}}));   % -> empirical/data/ea_dataset_v2_ois4.mat
+QUICK = true; SYSTEM = 'ois4'; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))   % interface check, ~4 min, meaningless numbers
+SYSTEM = 'ois4'; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))                 % steps REL A B C D E, ~30 min
 ```
 
-Variants: `assemble_dataset_v2(struct('system', 'ois4_yoy', 'vars', {{'ois1m', 'ip', 'hicp_yoy', 'stoxx'}}))`,
-`...'ois4avg_nsa', 'vars', {{'ois1m_avg', 'ip', 'hicp', 'stoxx'}}` (the Kilian test), `'ois6'` (2003m1 start).
-Results: `empirical/docs/CH7_RESULTS.md`, section "Monday run".
+The null calibrations, one per design (`p`) and per residual scheme; about
+6 s per replication at `p = 12` for `K = 4` in MATLAB (3 s at `p = 2`):
+
+```matlab
+for p = [2 4 6 12]
+    run_null_calibration(struct('p', p, 'null', struct('n_rep', 500, 'stem', sprintf('iv_ois4_p%d', p))));                        % iid residual resampling
+    run_null_calibration(struct('p', p, 'null', struct('n_rep', 500, 'sim_method', 'wild', 'stem', sprintf('iv_ois4_p%d', p))));  % wild bootstrap (-> *_wild)
+end
+SYSTEM = 'ois4'; DO_REL = false; DO_A = false; DO_C = false; DO_E = false; run(fullfile(ea_paths().empirical, 'RUN_EMPIRICAL_IV.m'))   % protocol + cross-p against every null found
+```
+
+`run_null_calibration` defaults to the `ois4` dataset (`ea_paths().dataset`);
+pass `'dataset'` for another system. The headline iid null at `p = 12` was run
+with `n_rep = 1000` so that Holm's step-down has the resolution it needs over
+16 cells (`R >= 319`); see `empirical/docs/RESULTS.md`.
+
+Outputs land in `results/empirical/`: `iv_<system>_p<p>*.{mat,csv}`,
+`null_calibration_iv_*.mat` (+ `.key.txt`, `null_thresholds_iv_*.csv`),
+`ablation_iv_*`, `iv_<system>_cross_p.csv`, figures in `figures/`.
+
+Without the data the package is still testable: `test_empirical_iv` and
+`test_empirical_pipeline` exercise every interface on synthetic fixtures that
+every driver refuses (`ds.synthetic = true`). **No empirical result may be
+produced from a fixture.**
+
+## 7. Legacy v1 pipeline (internal instrument, 2026-09-12)
+
+Kept runnable in `empirical/legacy_v1/`; writes to
+`results/empirical/legacy_v1/`. Design: `empirical/docs/DESIGN_V1_LEGACY.md`;
+results: the first part of `empirical/docs/RESULTS_LOG.md`.
+
+```matlab
+build_shock_series(); fetch_outcome_data(); assemble_dataset();   % -> empirical/data/ea_dataset.mat
+SMOKE_TEST_EMPIRICAL_V1                                            % interface check (2 s)
+RUN_EMPIRICAL_V1                                                   % steps A-F, ~4 min at p = 12, H = 48
+run_null_calibration(struct('null', struct('n_rep', 500, 'dataset', ea_paths().dataset_legacy)));   % ~85 min at K = 5
+DO_A = false; DO_B = false; DO_D = false; RUN_EMPIRICAL_V1         % protocol tables
+```

@@ -298,6 +298,6 @@ cfg.fmar.psi_floor = false;
 % ---------------------------------------------------------------------
 cfg.demo.run_montecarlo = true;       % run a small MC at the end
 cfg.demo.mc_dgps        = {'sparse'}; % which DGP(s) in the demo MC
-cfg.demo.save_figures   = true;       % print figures to results/
+cfg.demo.save_figures   = true;       % print figures to results/simulation/figures/
 
 end

@@ -5,7 +5,7 @@ break. It explains, in order: the question, the estimation procedure for
 one dataset, the simulation study, the euro-area application, and finally
 every file in the repository in one or two lines. Numbers are quoted only
 where they change how you read something; the authoritative tables are in
-`results/REPORT.txt` and `docs/RESULTS.md`.
+`results/simulation/REPORT.txt` and `docs/RESULTS.md`.
 
 ---
 
@@ -176,7 +176,7 @@ that average `tau` over equations before comparing blocks do not
 discriminate and are retired.
 
 **Headline findings** (`R = 500` for correct and sparse, `250` for the
-others; `results/REPORT.txt`, `docs/RESULTS.md`):
+others; `results/simulation/REPORT.txt`, `docs/RESULTS.md`):
 
 1. The adaptive estimators reliably *lower* RMSE at early horizons and
    reliably *raise* it at late ones; the integrated verdict depends on how
@@ -210,7 +210,7 @@ split into chunks (`run_mc_chunk.m`) across processes and merged exactly
 `legacy`, `smoke`). The 13-cell exploratory grid (`experiment_grid_spec.m`,
 `R = 40`) sweeps misspecification strength, sample size, lag order and
 sparsity one factor at a time. `report_montecarlo.m` prints every table
-from a stored result; `write_results_report.m` regenerates `results/REPORT.txt`.
+from a stored result; `write_results_report.m` regenerates `results/simulation/REPORT.txt`.
 
 ---
 
@@ -218,72 +218,71 @@ from a stored result; `write_results_report.m` regenerates `results/REPORT.txt`.
 
 **Purpose.** A methods demonstration: run the estimators on real monthly
 euro-area data and let the `tau` map answer "where does the VAR prior fail
-here?", with the null distribution simulated for this exact design.
+here?", with the null distribution simulated for this exact design. Design:
+`empirical/docs/DESIGN.md`; data: `empirical/docs/DATA.md`; results:
+`empirical/docs/RESULTS.md`; critical assessment: `docs/ASSESSMENT.md`.
 
-**Data** (`empirical/data/`). Five monthly series, 2000m1 to 2019m12
-(`T = 240`; with `p = 12` the effective sample starts in 2001m1):
+**Data** (`empirical/data/`). The headline system `ois4` has four monthly
+series, 2000m1 to 2019m12 (`T = 240`; with `p = 12` the effective sample
+starts in 2001m1):
 
 | # | variable | source | transform |
 |---|---|---|---|
-| 1 | `mps` | EA-EMPD high-frequency surprise in the 1-year OIS around ECB Governing Council monetary-event windows, summed within the month (`build_shock_series.m`) | percentage points |
-| 2 | `i1y` | 12-month Euribor, monthly average (ECB) | percent |
-| 3 | `ip` | industrial production, EA20, B-D, seasonally and calendar adjusted (Eurostat `sts_inpr_m`) | 100 log |
-| 4 | `hicp` | HICP all items, not seasonally adjusted (Eurostat `prc_hicp_midx`) | 100 log |
-| 5 | `stoxx` | EURO STOXX 50, monthly average (ECB) | 100 log |
+| 1 | `ois1m` | 1-month EONIA swap (OIS) rate, end-of-month level (ECB Data Portal copy of the Refinitiv series, bid/ask mid) | percent |
+| 2 | `ip` | industrial production, EA20, B-D, seasonally and calendar adjusted (Eurostat `sts_inpr_m`) | 100 log |
+| 3 | `hicp_sa` | HICP all items, working-day and seasonally adjusted (ECB `ICP.M.U2.Y.000000.3.INX`) | 100 log |
+| 4 | `stoxx` | EURO STOXX 50, monthly average (ECB) | 100 log |
 
-The surprise is ordered first and identified recursively, i.e. it is an
-*internal instrument*. The BVAR prior mean is white noise for the surprise
-and a random walk for the four levels (`isrw = [0 1 1 1 1]`). Every raw file
-is validated before use (`ea_check_series.m`): coverage, and three
-fingerprints that catch generated data (the package once shipped four
-placeholder files; they are quarantined in `data/raw/placeholder_rejected/`).
+The monetary-policy **instrument** does not enter the VAR. It is the
+high-frequency surprise in the 1-month OIS around ECB Governing Council
+meetings and Executive Board speeches (EA-EMPD; day-count adjusted as in
+Altavilla et al. 2025), summed within the month (`z_gcs_1m_adj_sum`,
+`build_instrument_series.m`). It is used once, at identification: the impact
+vector is the covariance of the VAR innovations with the instrument,
+normalised to a unit effect on the policy rate (`ea_identify_proxy.m`,
+Stock–Watson 2018), and every estimator's IRF is its horizon-`h` coefficient
+block times that vector. Fifty other instrument variants (meetings only,
+3-month and 1-year surprises, Jarociński–Karadi sign splits, Kilian
+day-weighted aggregation, orthogonalised on pre-event information, Jarociński's
+published shocks) are carried in the dataset for the relevance table.
 
-**Three legs** (`empirical/docs/CH7_DESIGN.md`):
+**Three legs** (`empirical/docs/DESIGN.md`):
 
 * **Leg 1, the finding**: the `tau` heatmap at `p = 12`, `H = 48`, for both
-  adaptive estimators (`RUN_EMPIRICAL` steps A and B).
+  adaptive estimators (`RUN_EMPIRICAL_IV` steps A and B).
 * **Leg 2, the null**: simulate `R` datasets from the BVAR fitted to the
-  real data (residual resampling, actual initial conditions), push each
-  through the whole pipeline, and record the null quantiles of the
-  early-horizon mean scale `tau_bar(i,g)`, the null argmax frequencies,
-  and the per-equation null 95th percentile of `max_g tau_bar`
-  (`empirical/montecarlo/run_null_calibration.m`). The reading protocol
-  (pre-registered): a cell is reported as an escape iff its `tau_bar`
-  exceeds its own null q95; attribution uses the argmax against its null
-  frequency; the pooled "anything escapes in this equation" flag uses the
-  max statistic. `RUN_EMPIRICAL` step E applies it mechanically.
-* **Leg 3, validation without a truth**: the same estimation at `p = 2`,
-  `6`, `12` on identical data (a monthly VAR(2) is knowingly too short, so
-  escapes should light up at `p = 2` and fade with `p`; step C); a
-  mechanical-coherence check (where `tau` escapes, the block IRF should sit
-  closer to the unshrunk LP than the FMAR IRF does; step E); the surprise
-  equation as a negative control (its dynamics are near white noise, which
-  the VAR nests, so its blocks should stay quiet); and the Jarocinski-Karadi
-  information-effect split of the surprises as a sensitivity dimension
-  (step D).
+  real data and push each through the whole pipeline
+  (`empirical/montecarlo/run_null_calibration.m`). Two residual schemes:
+  iid resampling (homoskedastic) and a wild bootstrap that keeps the
+  data's volatility profile (the short-rate innovation is four times less
+  volatile after 2012). The reading protocol (`ea_apply_protocol.m`)
+  reports, per cell, the ratio to the null 95th percentile, a Monte Carlo
+  p-value `(r + 1)/(R + 1)` and a family-wise p-value from the max
+  statistic over the free cells; a null is refused for a different design
+  (`ea_design_key.m`).
+* **Leg 3, validation without a truth**: the same estimation at
+  `p = 2, 4, 6, 12` against each design's own null (step D); an
+  out-of-sample block ablation that forces an escaping cell back to
+  `tau = 1` and compares forecasts (Clark–West, Diebold–Mariano; step E);
+  the LP-IV benchmark with Anderson–Rubin sets (`estimate_lp_iv.m`).
 
-**Identification strength.** `empirical/data/ea_relevance.m` reports the
-regression of the 1-year-rate innovation on the surprise innovation, both
-from the BVAR residuals. That coefficient is exactly the impact response
-the 25 bp normalisation divides by. In this dataset it is small and weakly
-identified (robust t of 0.77 at `p = 12`; `empirical/README_EMPIRICAL.md`,
-Status 1). The `tau` diagnostic is a statement about the dynamic
-specification of the five-variable system and does not depend on the
-instrument's strength; the structural reading of the IRFs, and the 25 bp
-scale, do. The chapter reports the number rather than assuming it.
+**Identification strength.** `ea_relevance_iv.m` reports the first stage on
+the VAR innovations (effective F against the Montiel Olea–Pflueger
+thresholds), lead/lag placebos, predictability from pre-event information and
+from the VAR's own lags, influence statistics, and where in the sample the
+first-stage covariance comes from. On the headline instrument the effective F
+is 13.7 (LP-IV 19.4), but two thirds of the covariance sits in 2009–2011 and
+ten months carry half of it; every IRF statement in the chapter is
+conditional on that. The `tau` diagnostic is a statement about the dynamic
+specification of the four-variable system and does not involve the
+instrument.
 
-**Two switches the real data required** (both off by default, so the
-simulations are untouched; `README_EMPIRICAL.md`, Status 2–3):
-`cfg.fmar.psi_floor` keeps FMAR's Newey-West prior scale from falling
-below the residual variance, which it did by a factor of five for the
-near-white-noise surprise and which drove the global tightness to 0.01
-with a bimodal objective; `cfg.blocks.fixed_tau = 1` holds the surprise's
-lag block at `tau = 1`, because one large contemporaneous coefficient and
-eleven near-zero lags violate the block prior's common-scale assumption
-and the collapsed block scale otherwise pulls the identifying coefficient
-to the VAR centre. Step F of the driver runs the same diagnostic on the
-four-variable level system without the surprise, as the clean companion
-exhibit. Results: `empirical/docs/CH7_RESULTS.md`.
+**Legacy v1.** Until 2026-09-13 the surprise sat inside the VAR as the first
+variable. That design (weak first stage on a monthly-average 1-year rate, the
+prior-scale floor `cfg.fmar.psi_floor`, the surprise block held at `tau = 1`
+by `cfg.blocks.fixed_tau`) is kept runnable in `empirical/legacy_v1/`, its
+outputs in `results/empirical/legacy_v1/`, its design in
+`empirical/docs/DESIGN_V1_LEGACY.md`.
 
 ---
 
@@ -344,7 +343,7 @@ exhibit. Results: `empirical/docs/CH7_RESULTS.md`.
   runs. `experiment_grid_spec.m`, `run_experiment_grid.m`,
   `collect_grid_results.m`: the exploratory grid.
   `run_sensitivity_approximations.m`: prices the remaining approximations.
-  `write_results_report.m`: regenerates `results/REPORT.txt`.
+  `write_results_report.m`: regenerates `results/simulation/REPORT.txt`.
 * `scripts/run_grid_parallel.sh`, `run_final_parallel.sh`,
   `run_remaining_finals.sh`: shell drivers that launch several Octave
   processes and merge (written for the Linux machine that produced the
@@ -370,29 +369,41 @@ exhibit. Results: `empirical/docs/CH7_RESULTS.md`.
 * the empirical package on a synthetic fixture: `empirical/tests/test_empirical_pipeline.m`.
 
 **Empirical package** (`empirical/`; every entry point resolves its own
-paths, so it runs from any directory)
+paths through `ea_paths.m`, so it runs from any directory)
 
-* `ea_paths.m`: the absolute locations.
-* `data/build_shock_series.m`: EA-EMPD events to monthly surprise series
-  (six variants). `data/fetch_outcome_data.m`: download or verify the four
-  outcome series. `data/read_sdmx_csv.m`: minimal SDMX-CSV reader.
-  `data/ea_check_series.m`: coverage and synthetic-data tripwires.
-  `data/ea_extract_series.m`: reduce an over-broad Eurostat export to one
-  series. `data/ea_write_provenance.m`: sidecar files recording where each
-  raw file came from. `data/ea_relevance.m`: instrument-relevance
-  diagnostics. `data/assemble_dataset.m`: the `T x 5` dataset with metadata.
-* `estimators/estimate_lp_lagaug.m`: the lag-augmented LP comparator.
-* `dgp/simulate_fitted_bvar_dgp.m`: the bootstrap under the null.
+* `RUN_EMPIRICAL_IV.m`: the driver of the current design (steps REL, A–E).
+* `ea_paths.m`: the absolute locations. `ea_design_key.m`: the canonical
+  design identifier a null is keyed to. `ea_apply_protocol.m`: the reading
+  protocol (ratios, Monte Carlo and family-wise p-values, Holm, counts).
+  `ea_cross_p_table.m`: the protocol across lag orders and nulls.
+* `data/build_instrument_series.m`: EA-EMPD workbook extract to 51 monthly
+  instruments. `data/import_ois_daily.m`: daily 1M OIS to monthly
+  end-of-month / average levels. `data/ea_fetch_v2_series.m` and
+  `data/fetch_outcome_data.m`: download and validate the ECB / Eurostat
+  series. `data/assemble_dataset_v2.m`: the `T x K` dataset with the
+  instruments alongside (`ds.Z`). `data/ea_identify_proxy.m`: the proxy
+  impact vector. `data/ea_relevance_iv.m`: relevance, timing, influence and
+  anatomy diagnostics. `data/ea_pre_event_info.m`,
+  `data/import_external_instrument.m`, `data/read_sdmx_csv.m`,
+  `data/ea_check_series.m` (coverage and synthetic-data tripwires),
+  `data/ea_extract_series.m`, `data/ea_write_provenance.m`.
+* `estimators/estimate_lp_iv.m`: LP-IV with HAC, lag-augmented EHW and
+  Anderson–Rubin sets. `estimators/estimate_lp_lagaug.m`: the
+  lag-augmented LP comparator.
+* `dgp/simulate_fitted_bvar_dgp.m`: the bootstrap under the null (iid,
+  wild, block, Gaussian residual schemes).
 * `montecarlo/run_null_calibration.m`: Leg 2, checkpointed and resumable.
-* `RUN_EMPIRICAL.m`: steps A to E. `SMOKE_TEST_EMPIRICAL.m`: a two-second
-  interface check on the real dataset.
-* `tests/make_synthetic_fixture.m`, `tests/test_empirical_pipeline.m`: a
-  clearly labelled simulated dataset for interface tests; both drivers
-  refuse it.
-* `docs/CH7_DESIGN.md`: the design document with the pre-registered
-  expectations. `docs/CH7_RESULTS.md`: the results of the 2026-09-12 run
-  and their reading against those expectations. `README_EMPIRICAL.md`:
-  run order, data integrity, status, the three design decisions.
+  `montecarlo/run_block_ablation.m`: the out-of-sample block ablation.
+* `legacy_v1/`: the 2026-09-12 internal-instrument design
+  (`RUN_EMPIRICAL_V1.m`, `SMOKE_TEST_EMPIRICAL_V1.m`, `assemble_dataset.m`,
+  `build_shock_series.m`, `ea_relevance.m`), kept runnable.
+* `tests/`: synthetic fixtures (`make_synthetic_fixture.m`,
+  `make_synthetic_ois_daily.m`) and the package tests
+  (`test_empirical_pipeline`, `test_empirical_iv`, `test_null_modularity`,
+  `test_lp_iv`); every driver refuses a fixture.
+* `docs/DESIGN.md` (current design), `docs/DESIGN_V1_LEGACY.md`,
+  `docs/LITERATURE.md`, `docs/DATA.md`, `docs/RESULTS.md` (current results),
+  `docs/RESULTS_LOG.md` (the chronological record). `README.md`: how to run.
 
 **Documentation and results**
 
@@ -400,40 +411,15 @@ paths, so it runs from any directory)
   numbers and what they support. `docs/APPROXIMATIONS.md`: the remaining
   simplifications and their measured cost. `docs/REPRODUCE.md`: every
   command with runtimes. This file.
-* `results/`: `mc_headline_<dgp>.mat` and their CSV exports are the
-  five-estimator headline runs; `grid/` the exploratory grid; `REPORT.txt`
-  the regenerated full report; `mc_final_*` and `mc_fmar_*` are earlier
-  four-estimator runs kept for reproducibility; the empirical outputs
-  (`empirical_p12.mat`, `tau_heatmap_p12.csv`, `dose_response.*`,
-  `tau_jk_comparison.csv`, `coherence_p12.csv`, `null_calibration.mat`,
-  `null_thresholds.csv`, `tau_protocol_p12.csv`) land here too.
+* `results/simulation/`: `mc_headline_<dgp>.mat` and their CSV exports are
+  the five-estimator headline runs; `grid/` the exploratory grid;
+  `REPORT.txt` the regenerated full report; `mc_final_*` and `mc_fmar_*`
+  are earlier four-estimator runs kept for reproducibility.
+  `results/empirical/`: the current design's outputs (`iv_*`, nulls,
+  ablations, `figures/`); `results/empirical/legacy_v1/`: the v1 outputs.
+  See `results/README.md`.
 * `presentation/thesis_pitch_2026-09-12.tex`: the eleven-slide status
-  deck for the current state (simulation evidence, the diagnostic
-  framing, the euro-area first pass). `presentation/thesis_pitch.tex` is
-  the 8 September 2026 version, kept for the record; its roadmap items are
-  done and its numbers predate the fair-benchmark revision.
-
-## Addendum (2026-09-13): the v2 empirical design in plain words
-
-The v1 chapter put the monthly policy surprise *inside* the VAR as the first
-variable. That made the surprise's own lag block part of the prior and of the
-tau map, which is not what we want to diagnose. In v2 the VAR and the local
-projections contain only the macro variables (policy rate, output, prices,
-stocks, and optionally loans and a lending spread). The surprise is used once:
-we regress the VAR's one-step surprises (innovations) on the instrument, which
-tells us how a "1 pp surprise-induced move in the policy rate" moves every
-other variable on impact; the horizon-h responses are then the local-projection
-coefficient blocks times that impact vector. The tau map, the tightness and the
-null are exactly what they were for a system without an instrument, so nothing
-about the specification diagnostic depends on how strong the instrument is;
-only the IRFs do, and their strength is now a reported number (the first-stage
-F) with weak-instrument-robust confidence sets alongside.
-
-The instrument itself is rebuilt: the 1-month OIS move around each event,
-scaled by 30/(30 − days to the next meeting) as in Altavilla et al., speeches
-included, and summed within the month when the policy rate is measured at the
-end of the month, or spread across the current and the next month in
-proportion to the days affected when the rate is a monthly average (Kilian's
-argument). Files: `empirical/data/build_instrument_series.m`,
-`ea_identify_proxy.m`, `ea_relevance_iv.m`, `assemble_dataset_v2.m`,
-`empirical/RUN_EMPIRICAL_IV.m`, `empirical/montecarlo/run_block_ablation.m`.
+  deck of 12 September 2026 (simulation evidence, the diagnostic framing,
+  the v1 euro-area first pass; it predates the external-instrument
+  redesign). `presentation/archive/thesis_pitch_2026-09-08.tex` is the
+  earlier version, kept for the record.
