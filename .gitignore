@@ -8,6 +8,7 @@
 empirical/data/ea_dataset*.mat
 # Outcome and indicator series downloaded from Eurostat / the ECB Data Portal
 # (third-party data, not redistributed; fetch_outcome_data / ea_fetch_v2_series /
+# import_ois_daily rebuild them).  The EA-EMPD event extracts ARE shipped, as
 # are the provenance sidecars and the derived monthly instrument panel.
 empirical/data/raw/*.csv
 empirical/data/raw/*.xlsx
